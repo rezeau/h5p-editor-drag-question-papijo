@@ -72,7 +72,9 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
             break;
           }
         }
-        html += '<li><label class="h5p-editor-label"><input type="checkbox" value="' + option.value + '"' + (selected ? ' checked="checked"' : '') + '/><div class="h5p-label-text">' + option.label + '</div></label></li>';
+        // JR JULY 2020 strip all HTML tags in case dropZone label has been heavily formatted!
+        let strippedLabel = option.label.replace(/(<([^>]+)>)/gi, "");
+        html += '<li><label class="h5p-editor-label"><input type="checkbox" value="' + option.value + '"' + (selected ? ' checked="checked"' : '') + '/><div class="h5p-label-text">' + strippedLabel + '</div></label></li>';
       }
       else {
         // Check if selected

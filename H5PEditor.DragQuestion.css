@@ -290,7 +290,7 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
 .h5p-dq-dz-label {
   background: none repeat scroll 0 0 #ddd;
   margin-bottom: 0.1em;
-  line-height: 1.25em;
+  line-height: normal;
   padding-left: 0.5em;
   padding-right: 0.5em;
   position: absolute;
