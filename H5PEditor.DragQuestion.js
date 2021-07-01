@@ -1516,7 +1516,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       return;
     }
     for (var i = 0; i < domElements.length; i++) {
-      switch (type) {
+      switch (elementtype) {
         case 'element':
           C.setElementOpacity(domElements[i]['$' + elementtype], this.getElementOpacitySetting(elements[i]));
           break;
