@@ -622,9 +622,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    */
   C.prototype.getButton = function (library) {
     var that = this;
-    var id = C.getLibraryID(library.uberName);
-    console.log(id);
-    console.log(library);
+    var id = C.getLibraryID(library.uberName);    
     return {
       id: id,
       title: library.title,
@@ -634,10 +632,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
           library: library.uberName,
           params: {}
         };
-        console.log(elementParams);
         that.params.elements.push(elementParams);
-        console.log(that.params.elements);
-        console.log(that.params.elements.length);
         return that.insertElement(that.params.elements.length - 1);
       }
     };
@@ -655,15 +650,15 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     var element = this.generateForm(this.elementFields, elementParams);
 
     var library = this.children[0];
-
+    console.log ('line 653');
     // Get image aspect ratio
     var libraryChange = function () {
       if (library.children[0].field.type === 'image') {
+      
         library.children[0].changes.push(function (params) {
           if (params === undefined) {
             return;
           }
-
           if (params.width !== undefined && params.height !== undefined) {
             var editorStyles = window.getComputedStyle(that.$editor[0]);
             var editorWidth = parseFloat(editorStyles.width);
@@ -683,9 +678,15 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
             });
           }
         });
+      } else if (library.children[0].field.type === 'audio') {
+        library.children[0].changes.push(function (params) {
+          if (params === undefined) {
+            return;
+          }
+        });
       }
     };
-
+    
     if (library.children === undefined) {
       library.changes.push(libraryChange);
     }
@@ -1010,9 +1011,22 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   C.prototype.updateElement = function (element, id) {
     var self = this;
     var params = this.params.elements[id];
-
-    var type = (params.type.library.split(' ')[0] === 'H5P.AdvancedText' ? 'text' : 'image');
+    
+    // Add audio to potential element types.
+    switch(params.type.library.split(' ')[0]) {
+      case 'H5P.AdvancedText':
+        type =  'text';
+      break;
+      case 'H5P.Image':
+        type =  'image';
+      break;
+      case 'H5P.Audio':
+        type =  'audio';
+      break;
+    }
+     
     var hasCk = (element.children[0].children !== undefined && element.children[0].children[0].ckeditor !== undefined);
+    
     if (type === 'text' && hasCk) {
       // Create new text instance. Replace asterisk with spans
       element.instance = H5P.newRunnable({
@@ -1038,10 +1052,36 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       // Override image hover and use user defined hover text or none
       element.$innerElement.find('img').attr('title', params.type.params.title || '');
     }
-
+    
+    switch(type) {
+      case 'text':
+        label = $('<div>' + params.type.params.text + '</div>').text();
+        element.$element.addClass('h5p-dq-text');         
+      break;
+      case 'image':
+        label = params.type.params.alt + '';
+        // Override image hover and use user defined hover text or none
+        element.$innerElement.find('img').attr('title', params.type.params.title || '');
+        
+        console.log (1065);
+        console.log(element.$innerElement.find('img').attr('style'));
+        console.log (1067);
+        //element.$innerElement.find('img').attr('style', 'max-height:none');
+      break;
+      case 'audio':
+        label = params.type.metadata.title;
+        element.$innerElement.attr('title', label);
+      break;
+    }
+    
+    /*
     // Find label text without html
     var label = (type === 'text' ? $('<div>' + params.type.params.text + '</div>').text() : params.type.params.alt + '');
-
+    if (type === 'audio') {
+      label = params.type.metadata.title;
+      element.$innerElement.attr('title', label);
+    }
+    */
     // Update correct element options
     this.elementOptions[id] = {
       value: '' + id,
@@ -1760,6 +1800,8 @@ H5PEditor.language['H5PEditor.DragQuestion'] = {
     remove: 'Remove',
     image: 'Image',
     text: 'Text',
+    // add audio
+    audio: 'Audio',
     noTaskSize: 'Please specify task size first.',
     confirmRemoval: 'Are you sure you wish to remove this element?',
     backgroundOpacityOverridden: 'The background opacity is overridden',

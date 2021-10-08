@@ -107,6 +107,9 @@
 .dragQuestion .h5p-dragnbar-image-button:before {
   content: "\f03e";
 }
+.dragQuestion .h5p-dragnbar-audio-button:before {
+  content: "\f028";
+}
 .dragQuestion .h5p-dragnbar-dropzone-button:before {
   content: "\f140";
 }
@@ -402,4 +405,7 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
 
 .h5p-dragquestion-editor .h5peditor-panes {
   border-top: solid 1px #e3e3e3;
+}
+.h5p-dragquestion-editor .h5p-audio-inner .h5p-audio-minimal-button {
+  cursor: crosshair!important;
 }
