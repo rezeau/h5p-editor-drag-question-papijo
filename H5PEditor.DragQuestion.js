@@ -622,7 +622,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    */
   C.prototype.getButton = function (library) {
     var that = this;
-    var id = C.getLibraryID(library.uberName);    
+    var id = C.getLibraryID(library.uberName);
     return {
       id: id,
       title: library.title,
@@ -648,13 +648,13 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     var that = this;
     var elementParams = this.params.elements[index];
     var element = this.generateForm(this.elementFields, elementParams);
-    
+
     var library = this.children[0];
-    
+
     // Get image aspect ratio
     var libraryChange = function () {
       if (library.children[0].field.type === 'image') {
-      
+
         library.children[0].changes.push(function (params) {
           if (params === undefined) {
             return;
@@ -680,7 +680,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
         });
       }
     };
-    
+
     if (library.children === undefined) {
       library.changes.push(libraryChange);
     }
@@ -727,7 +727,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     that.updateElement(element, index);
 
     this.elements[index] = element;
-    
+
     return element.$element;
   };
 
@@ -1016,7 +1016,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
         type =  'audio';
       break;
     }
-     
+
     var hasCk = (element.children[0].children !== undefined && element.children[0].children[0].ckeditor !== undefined);
     if (type === 'text' && hasCk) {
       // Create new text instance. Replace asterisk with spans
@@ -1042,11 +1042,11 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       // Override image hover and use user defined hover text or none
       element.$innerElement.find('img').attr('title', params.type.params.title || '');
     }
-    
+
     switch(type) {
       case 'text':
         label = $('<div>' + params.type.params.text + '</div>').text();
-        element.$element.addClass('h5p-dq-text');         
+        element.$element.addClass('h5p-dq-text');
       break;
       case 'image':
         label = params.type.params.alt + '';
@@ -1067,7 +1067,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
         }
       break;
     }
-    
+
     // Update correct element options
     this.elementOptions[id] = {
       value: '' + id,
@@ -1786,7 +1786,6 @@ H5PEditor.language['H5PEditor.DragQuestion'] = {
     remove: 'Remove',
     image: 'Image',
     text: 'Text',
-    // add audio
     audio: 'Audio',
     noTaskSize: 'Please specify task size first.',
     confirmRemoval: 'Are you sure you wish to remove this element?',
