@@ -648,9 +648,9 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     var that = this;
     var elementParams = this.params.elements[index];
     var element = this.generateForm(this.elementFields, elementParams);
-
+    
     var library = this.children[0];
-    console.log ('line 653');
+    
     // Get image aspect ratio
     var libraryChange = function () {
       if (library.children[0].field.type === 'image') {
@@ -676,12 +676,6 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
               width: elementParams.width + 'em',
               height: elementParams.height + 'em'
             });
-          }
-        });
-      } else if (library.children[0].field.type === 'audio') {
-        library.children[0].changes.push(function (params) {
-          if (params === undefined) {
-            return;
           }
         });
       }
@@ -714,7 +708,6 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
 
     setTimeout(function () {
       var type = (elementParams.type ? elementParams.type.library.split(' ')[0] : null);
-
       var dnbElement = that.dnb.add(element.$element, DragNBar.clipboardify(clipboardKey, elementParams, 'type'), {
         cornerLock: (type === 'H5P.Image')
       });
@@ -734,6 +727,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     that.updateElement(element, index);
 
     this.elements[index] = element;
+    
     return element.$element;
   };
 
@@ -923,7 +917,6 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   C.prototype.editElement = function (element) {
     var that = this;
     var id = element.$element.data('id');
-
     this.doneCallback = function () {
       // Validate form
       var valid = true;
@@ -1011,7 +1004,6 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   C.prototype.updateElement = function (element, id) {
     var self = this;
     var params = this.params.elements[id];
-    
     // Add audio to potential element types.
     switch(params.type.library.split(' ')[0]) {
       case 'H5P.AdvancedText':
@@ -1026,7 +1018,6 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     }
      
     var hasCk = (element.children[0].children !== undefined && element.children[0].children[0].ckeditor !== undefined);
-    
     if (type === 'text' && hasCk) {
       // Create new text instance. Replace asterisk with spans
       element.instance = H5P.newRunnable({
@@ -1039,8 +1030,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       // Remove asterisk from params and input field
       params.type.params.text = params.type.params.text.replace(/\*([^*]+)\*/g, '$1');
       element.children[0].children[0].ckeditor.setData(params.type.params.text);
-    }
-    else {
+    } else {
       // Create new instance
       element.instance = H5P.newRunnable(params.type, H5PEditor.contentId, element.$innerElement);
     }
@@ -1062,26 +1052,22 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
         label = params.type.params.alt + '';
         // Override image hover and use user defined hover text or none
         element.$innerElement.find('img').attr('title', params.type.params.title || '');
-        
-        console.log (1065);
-        console.log(element.$innerElement.find('img').attr('style'));
-        console.log (1067);
         //element.$innerElement.find('img').attr('style', 'max-height:none');
       break;
       case 'audio':
-        label = params.type.metadata.title;
-        element.$innerElement.attr('title', label);
+        // Detect extra audio element added by the audio library and remove it if necessary.
+        var audioElements = element.$innerElement.children();
+        var count = audioElements.children().length;
+        if (count > 1) {
+            audioElements[0].remove();
+        };
+        if (params.type.metadata) {
+          label = params.type.metadata.title;
+          element.$innerElement.attr('title', label);
+        }
       break;
     }
     
-    /*
-    // Find label text without html
-    var label = (type === 'text' ? $('<div>' + params.type.params.text + '</div>').text() : params.type.params.alt + '');
-    if (type === 'audio') {
-      label = params.type.metadata.title;
-      element.$innerElement.attr('title', label);
-    }
-    */
     // Update correct element options
     this.elementOptions[id] = {
       value: '' + id,
