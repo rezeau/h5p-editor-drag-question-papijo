@@ -1052,7 +1052,6 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
         label = params.type.params.alt + '';
         // Override image hover and use user defined hover text or none
         element.$innerElement.find('img').attr('title', params.type.params.title || '');
-        //element.$innerElement.find('img').attr('style', 'max-height:none');
       break;
       case 'audio':
         // Detect extra audio element added by the audio library and remove it if necessary.
@@ -1064,6 +1063,8 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
         if (params.type.metadata) {
           label = params.type.metadata.title;
           element.$innerElement.attr('title', label);
+        } else {
+          label = 'Untitled Audio';
         }
       break;
     }

@@ -5,6 +5,7 @@
     "remove":"Supprimer",
     "image":"Image",
     "text":"Texte",
+    "audio": "Audio",
     "noTaskSize":"Veuillez commencer par indiquer les dimensions de la zone d'activité.",
     "confirmRemoval":"Êtes-vous certain de vouloir supprimer cet élément ?",
     "backgroundOpacityOverridden":"L'opacité de l'arrière-plan est écrasée",
