@@ -9,6 +9,7 @@
     "noTaskSize":"Veuillez commencer par indiquer les dimensions de la zone d'activité.",
     "confirmRemoval":"Êtes-vous certain de vouloir supprimer cet élément ?",
     "backgroundOpacityOverridden":"L'opacité de l'arrière-plan est écrasée",
+    "dropZonesBorderColorOverridden": "La couleur de la bordure des zones de dépôt est écrasée",
     "advancedtext":"Texte",
     "dropzone":"Zone De Dépôt",
     "selectAll":"Sélectionner tout ",
