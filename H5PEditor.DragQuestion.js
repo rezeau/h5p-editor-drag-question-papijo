@@ -171,12 +171,31 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       }
       return false;
     }).end().find('.h5peditor-remove').click(function () {
+      /*
       if (confirm(C.t('confirmRemoval'))) {
         that.removeCallback();
         that.hideDialog();
       }
       return false;
+      */
+        that.showConfirmationDialog({
+        headerText: C.t('deleteTaskTitle'),
+        dialogText: C.t('confirmRemoval'),
+        cancelText: C.t('cancel'),
+        confirmText: C.t('confirm'),
+      }, handleFormDialogActions);
     });
+    /**
+     * Callback confirm/cancel action
+     * @param {boolean} [confirmFlag] Which button is clicked
+     */
+    const handleFormDialogActions = function (confirmFlag) {
+      if (!confirmFlag) {
+        return false;
+      }
+      that.removeCallback();
+      that.hideDialog();
+    };
   };
 
   /**
@@ -428,7 +447,12 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       var $element;
 
       if (!pasted.generic || !that.supported(pasted.generic.library)) {
-        return alert(H5PEditor.t('H5P.DragNBar', 'unableToPaste'));
+        return that.showConfirmationDialog({
+          headerText: H5PEditor.t('core', 'pasteError'),
+          dialogText: H5PEditor.t('H5P.DragNBar', 'unableToPaste'),
+          cancelText: ' ',
+          confirmText: C.t('ok')
+        });
       }
 
       if (pasted.from === clipboardKey) {
@@ -625,7 +649,8 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     var id = C.getLibraryID(library.uberName);
     return {
       id: id,
-      title: library.title,
+      //title: library.title, FIXED PAPI JO 11 OCT 2021
+      title: C.t('insertElement', {':type': C.t(id)}),
       createElement: function () {
         var elementParams = C.getDefaultElementParams(id);
         elementParams.type = {
@@ -739,40 +764,55 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   C.prototype.elementRemove = function (element) {
     var that = this;
 
+    /**
+     * Callback confirm/cancel action
+     * @param {boolean} [confirmFlag] Which button is clicked
+     */
+    const handleTaskDialogActions = function (confirmFlag) {
+      if (!confirmFlag) {
+        return false;
+      }
+
+      var id = element.$element.data('id');
+      var value = id.toString();
+
+      // Remove element form
+      H5PEditor.removeChildren(element.children);
+
+      // Remove element
+      element.$element.remove();
+      that.elements.splice(id, 1);
+      that.params.elements.splice(id, 1);
+
+      // Remove from options
+      that.elementOptions.splice(id, 1);
+
+      // Update drop zone params
+      that.params.dropZones.forEach(function (dropZone) {
+        // Update correct elements for drop zone
+        for (let i = 0; i < dropZone.correctElements.length; i++) {
+          if (dropZone.correctElements[i] === value) {
+            dropZone.correctElements.splice(i, 1);
+            i--;
+          }
+          else if (parseInt(dropZone.correctElements[i]) > id) {
+            dropZone.correctElements[i] = '' + (parseInt(dropZone.correctElements[i]) - 1);
+          }
+        }
+      });
+
+      that.updateInternalElementIDs(id);
+      that.dnb.blurAll();
+    };
+
     // confirm remove
-    if (!confirm(C.t('confirmRemoval'))) {
-      return;
-    }
-
-    var id = element.$element.data('id');
-    var value = id.toString();
-
-    // Remove element form
-    H5PEditor.removeChildren(element.children);
-
-    // Remove element
-    element.$element.remove();
-    that.elements.splice(id, 1);
-    that.params.elements.splice(id, 1);
-
-    // Remove from options
-    that.elementOptions.splice(id, 1);
-
-    // Update drop zone params
-
-    that.params.dropZones.forEach(function (dropZone) {
-      var elements = dropZone.correctElements;
-
-      elements = that.arrayRemoveByValue(elements, value);
-      elements = that.decrementIdsLargerThen(elements, id);
-
-      // update correct elements
-      dropZone.correctElements = elements;
-    });
-
-    that.updateInternalElementIDs(id);
-    that.dnb.blurAll();
-  };
+    that.showConfirmationDialog({
+      headerText: C.t('deleteTaskTitle'),
+      dialogText: C.t('confirmRemoval'),
+      cancelText: C.t('cancel'),
+      confirmText: C.t('confirm'),
+    }, handleTaskDialogActions);
+  };  
 
   /**
    * Brings an element to the front
@@ -1179,7 +1219,20 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       });
 
       dropzoneDnBElement.contextMenu.on('contextMenuRemove', function () {
-        if (!confirm(C.t('confirmRemoval'))) {
+          that.showConfirmationDialog({
+          headerText: C.t('deleteTaskTitle'),
+          dialogText: C.t('confirmRemoval'),
+          cancelText: C.t('cancel'),
+          confirmText: C.t('confirm'),
+        }, removeDropzoneDialogActions);
+      });
+
+      /**
+       * Callback confirm/cancel action
+       * @param {boolean} [confirmFlag] Which button is clicked
+       */
+      const removeDropzoneDialogActions = function (confirmFlag) {
+        if (!confirmFlag) {
           return;
         }
 
@@ -1217,7 +1270,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
 
         that.updateInternalDropZoneIDs(id);
         that.dnb.blurAll();
-      });
+      };
 
       dropzoneDnBElement.contextMenu.on('contextMenuBringToFront', function () {
         var id = dropZone.$dropZone.data('id');
@@ -1766,6 +1819,30 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   };
 
   /**
+   * Add confirmation dialog to button.
+   * @param {object} dialogOptions Dialog options.
+   * @param {function} handleActions Handle both actions Confirmed and Canceled.
+   */
+  C.prototype.showConfirmationDialog = function (dialogOptions, handleActions) {
+    const confirmationDialog = new H5P.ConfirmationDialog(dialogOptions)
+    .appendTo(document.body);
+
+    confirmationDialog.on('confirmed', () => {
+      if (handleActions) {
+        handleActions(true);
+      }
+    });
+
+    confirmationDialog.on('canceled', () => {
+      if (handleActions) {
+        handleActions(false);
+      }
+    });
+
+    confirmationDialog.show();
+  };
+
+  /**
    * Translate UI texts for this library.
    *
    * @param {String} key
@@ -1773,28 +1850,10 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    * @returns {@exp;H5PEditor@call;t}
    */
   C.t = function (key, vars) {
-    return H5PEditor.t('H5PEditor.DragQuestion', key, vars);
+    return H5PEditor.t('H5PEditor.DragQuestionPapiJo', key, vars);
   };
 
   return C;
 })(H5P.jQuery, H5P.DragNBar);
 
-// Default english translations
-H5PEditor.language['H5PEditor.DragQuestion'] = {
-  libraryStrings: {
-    insertElement: 'Insert :type',
-    done: 'Done',
-    remove: 'Remove',
-    image: 'Image',
-    text: 'Text',
-    audio: 'Audio',
-    noTaskSize: 'Please specify task size first.',
-    confirmRemoval: 'Are you sure you wish to remove this element?',
-    backgroundOpacityOverridden: 'The background opacity is overridden',
-    advancedtext: 'Advanced text',
-    dropzone: 'Drop zone',
-    selectAll: 'Select all',
-    deselectAll: 'Deselect all',
-    dropZonesBorderColorOverridden: 'The dropzone border color is overridden'
-  }
-};
+// Translations have been moved to the language files by papi Jo in OCT 2021.

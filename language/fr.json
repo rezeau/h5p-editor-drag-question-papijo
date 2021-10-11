@@ -5,13 +5,17 @@
     "remove":"Supprimer",
     "image":"Image",
     "text":"Texte",
-    "audio": "Audio",
+    "audio": "Clip audio",
     "noTaskSize":"Veuillez commencer par indiquer les dimensions de la zone d'activité.",
     "confirmRemoval":"Êtes-vous certain de vouloir supprimer cet élément ?",
     "backgroundOpacityOverridden":"L'opacité de l'arrière-plan est écrasée",
     "advancedtext":"Texte",
     "dropzone":"Zone De Dépôt",
     "selectAll":"Sélectionner tout ",
-    "deselectAll":"Désélectionner tout"
+    "deselectAll":"Désélectionner tout",
+    "deleteTaskTitle": "Supprimer de l'activité",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "ok": "Ok"
   }
 }

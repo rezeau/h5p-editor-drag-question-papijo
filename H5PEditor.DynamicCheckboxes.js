@@ -23,7 +23,6 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
     this.parent = parent;
     this.field = field;
     this.setValue = setValue;
-
     if (params === undefined) {
       if (this.field.multiple) {
         this.params = [];
@@ -72,9 +71,7 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
             break;
           }
         }
-        // JR JULY 2020 strip all HTML tags in case dropZone label has been heavily formatted!
-        let strippedLabel = option.label.replace(/(<([^>]+)>)/gi, "");
-        html += '<li><label class="h5p-editor-label"><input type="checkbox" value="' + option.value + '"' + (selected ? ' checked="checked"' : '') + '/><div class="h5p-label-text">' + strippedLabel + '</div></label></li>';
+        html += '<li><label class="h5p-editor-label"><input type="checkbox" value="' + option.value + '"' + (selected ? ' checked="checked"' : '') + '/><div class="h5p-label-text">' + option.label + '</div></label></li>';
       }
       else {
         // Check if selected
@@ -85,7 +82,7 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
       }
     }
 
-    this.$item.html(html ? '<div class="h5peditor-label">' + this.field.label + '</div>' + (this.field.multiple ? '<a href="#" class="h5p-selectall">' + H5PEditor.t('H5PEditor.DragQuestion', 'selectAll') + '</a>' : '') + '<ul class="h5peditor-dynamiccheckboxes-select">' + html + '</ul>' : '');
+    this.$item.html(html ? '<div class="h5peditor-label">' + this.field.label + '</div>' + (this.field.multiple ? '<a href="#" class="h5p-selectall">' + H5PEditor.t('H5PEditor.DragQuestionPapiJo', 'selectAll') + '</a>' : '') + '<ul class="h5peditor-dynamiccheckboxes-select">' + html + '</ul>' : '');
 
     var updateSelectAll, $a, $checkboxes = this.$item.find('input').change(function () {
       that.change($(this));
@@ -118,10 +115,10 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
     updateSelectAll = function () {
       if ($checkboxes.length) {
         if ($checkboxes.length === $checkboxes.filter(':checked').length) {
-          $a.addClass('h5p-deselectall').text(H5PEditor.t('H5PEditor.DragQuestion', 'deselectAll'));
+          $a.addClass('h5p-deselectall').text(H5PEditor.t('H5PEditor.DragQuestionPapiJo', 'deselectAll'));
         }
         else {
-          $a.removeClass('h5p-deselectall').text(H5PEditor.t('H5PEditor.DragQuestion', 'selectAll'));
+          $a.removeClass('h5p-deselectall').text(H5PEditor.t('H5PEditor.DragQuestionPapiJo', 'selectAll'));
         }
       }
     };
@@ -177,4 +174,4 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
   return C;
 })(H5P.jQuery);
 
-// Get translations from H5PEditor.DragQuestion
+// Get translations from H5PEditor.DragQuestionPapiJo
