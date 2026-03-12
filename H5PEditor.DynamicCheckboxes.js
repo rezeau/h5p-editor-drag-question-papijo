@@ -82,7 +82,7 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
       }
     }
 
-    this.$item.html(html ? '<div class="h5peditor-label">' + this.field.label + '</div>' + (this.field.multiple ? '<a href="#" class="h5p-selectall">' + H5PEditor.t('H5PEditor.DragQuestionPapiJo', 'selectAll') + '</a>' : '') + '<ul class="h5peditor-dynamiccheckboxes-select">' + html + '</ul>' : '');
+    this.$item.html(html ? '<div class="h5peditor-label">' + this.field.label + '</div>' + (this.field.multiple ? '<a href="#" class="h5p-selectall">' + H5PEditor.t('H5PEditor.DragQuestion', 'selectAll') + '</a>' : '') + '<ul class="h5peditor-dynamiccheckboxes-select">' + html + '</ul>' : '');
 
     var updateSelectAll, $a, $checkboxes = this.$item.find('input').change(function () {
       that.change($(this));
@@ -115,10 +115,10 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
     updateSelectAll = function () {
       if ($checkboxes.length) {
         if ($checkboxes.length === $checkboxes.filter(':checked').length) {
-          $a.addClass('h5p-deselectall').text(H5PEditor.t('H5PEditor.DragQuestionPapiJo', 'deselectAll'));
+          $a.addClass('h5p-deselectall').text(H5PEditor.t('H5PEditor.DragQuestion', 'deselectAll'));
         }
         else {
-          $a.removeClass('h5p-deselectall').text(H5PEditor.t('H5PEditor.DragQuestionPapiJo', 'selectAll'));
+          $a.removeClass('h5p-deselectall').text(H5PEditor.t('H5PEditor.DragQuestion', 'selectAll'));
         }
       }
     };
@@ -174,4 +174,4 @@ H5PEditor.widgets.dynamicCheckboxes = H5PEditor.DynamicCheckboxes = (function ($
   return C;
 })(H5P.jQuery);
 
-// Get translations from H5PEditor.DragQuestionPapiJo
+// Get translations from H5PEditor.DragQuestion

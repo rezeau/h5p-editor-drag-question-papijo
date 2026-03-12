@@ -7,7 +7,7 @@
   "author": "Joubel",
   "coreApi": {
     "majorVersion": 1,
-    "minorVersion": 24
+    "minorVersion": 28
   },
   "machineName": "H5PEditor.DragQuestionPapiJo",
   "preloadedJs": [
@@ -63,6 +63,11 @@
       "machineName": "H5P.JoubelUI",
       "majorVersion": 1,
       "minorVersion": 3
+    },
+    {
+      "machineName": "H5P.Components",
+      "majorVersion": 1,
+      "minorVersion": 0
     }
   ]
 }
