@@ -1644,7 +1644,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    * @returns {@exp;H5PEditor@call;t}
    */
   C.t = function (key, vars) {
-    return H5PEditor.t('H5PEditor.DragQuestion', key, vars);
+    return H5PEditor.t('H5PEditor.DragQuestionPapiJo', key, vars);
   };
 
   return C;
