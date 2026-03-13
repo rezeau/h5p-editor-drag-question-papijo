@@ -367,11 +367,17 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
 .h5p-dragquestion-editor .field.wizard > .h5peditor-panes > .group > .content {
   border: 0;
 }
-
-.h5p-dragquestion-editor .field.wizard .h5peditor-tab-settings:before {
+/*
+.h5p-dragquestion-editor .field.wizard .h5peditor-tab-a .h5peditor-tab-settings:before {
   content: '\e916';
 }
-.h5p-dragquestion-editor .field.wizard .h5peditor-tab-task:before {
+*/
+.field.wizard .h5peditor-tab-a.h5peditor-tab-settings:before,
+.field.wizard .nav-button-label.h5peditor-tab-settings:before {
+  content: '\e916';
+}
+.field.wizard .h5peditor-tab-a.h5peditor-tab-task:before,
+.field.wizard .nav-button-label.h5peditor-tab-task:before {
   content: '\e991';
 }
 
