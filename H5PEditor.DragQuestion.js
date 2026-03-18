@@ -642,7 +642,6 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     var element = this.generateForm(this.elementFields, elementParams);
 
     var library = this.children[0];
-
     // Get image aspect ratio
     var libraryChange = function () {
       if (library.children[0].field.type === 'image') {
@@ -986,12 +985,20 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   C.prototype.updateElement = function (element, id) {
     var self = this;
     var params = this.params.elements[id];
+    // Add audio to potential element types.
+    switch(params.type.library.split(' ')[0]) {
+      case 'H5P.AdvancedText':
+        type =  'text';
+      break;
+      case 'H5P.Image':
+        type =  'image';
+      break;
+      case 'H5P.Audio':
+        type =  'audio';
+      break;
+    }
 
-    var type = (params.type.library.split(' ')[0] === 'H5P.AdvancedText' ? 'text' : 'image');
     var hasCk = (element.children[0].children !== undefined && element.children[0].children[0].ckeditor !== undefined);
-
-    const instanceHolderDOM = document.createElement('div');
-
     if (type === 'text' && hasCk) {
       // Create new text instance. Replace asterisk with spans
       element.instance = H5P.newRunnable({
@@ -999,29 +1006,49 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
         params: {
           text: params.type.params.text.replace(/\*([^*]+)\*/g, '<span class="h5p-dragquestion-placeholder">$1</span>')
         }
-      }, H5PEditor.contentId, H5P.jQuery(instanceHolderDOM));
+      }, H5PEditor.contentId, element.$innerElement);
 
       // Remove asterisk from params and input field
       params.type.params.text = params.type.params.text.replace(/\*([^*]+)\*/g, '$1');
       element.children[0].children[0].ckeditor.setData(params.type.params.text);
-    }
-    else {
-      // Use placeholder image if none specified
-      params.type.params.usePlaceholderImage = true;
-
+    } else {
       // Create new instance
-      H5P.newRunnable(params.type, H5PEditor.contentId, H5P.jQuery(instanceHolderDOM));
+      element.instance = H5P.newRunnable(params.type, H5PEditor.contentId, element.$innerElement);
     }
-
-    element.draggable.setContent({dom: instanceHolderDOM});
 
     if (type === 'text') {
       element.$element.addClass('h5p-dq-text');
     }
+      else if (type === 'image') {
+      // Override image hover and use user defined hover text or none
+      element.$innerElement.find('img').attr('title', params.type.params.title || '');
+    }
 
-    // Find label text without html
-    var label = (type === 'text' ? $('<div>' + params.type.params.text + '</div>').text() : params.type.params.alt + '');
-
+    switch(type) {
+      case 'text':
+        label = $('<div>' + params.type.params.text + '</div>').text();
+        element.$element.addClass('h5p-dq-text');
+      break;
+      case 'image':
+        label = params.type.params.alt + '';
+        // Override image hover and use user defined hover text or none
+        element.$innerElement.find('img').attr('title', params.type.params.title || '');
+      break;
+      case 'audio':
+        // Detect extra audio element added by the audio library and remove it if necessary.
+        var audioElements = element.$innerElement.children();
+        var count = audioElements.children().length;
+        if (count > 1) {
+            audioElements[0].remove();
+        };
+        if (params.type.metadata) {
+          label = params.type.metadata.title;
+          element.$innerElement.attr('title', label);
+        } else {
+          label = 'Untitled Audio';
+        }
+      break;
+    }
     // Update correct element options
     this.elementOptions[id] = {
       value: '' + id,
@@ -1402,6 +1429,14 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       value: '' + id,
       label: params.label
     };
+    // JR Add tooltip title to make editing easier for dropzones where label is not displayed.
+    $element = dropZone.$dropZone.add(dropZone.$dropZone.children('.h5p-dq-dz-label'));
+    if (!params.showLabel) {
+      title = C.getLabel($(params.label).text());
+      $element.prop({
+        title: title
+      });
+    }
 
     C.setOpacity(dropZone.$dropZone.children('.h5p-inner'), 'background', params.backgroundOpacity);
     C.setOpacity(dropZone.$dropZone.children('.h5p-dq-dz-label'), 'background', params.backgroundOpacity);

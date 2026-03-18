@@ -122,6 +122,10 @@
 .dragQuestion .h5p-dragnbar-image-button:before {
   content: '\f03e';
 }
+.dragQuestion .h5p-dragnbar-audio-button:before {
+  content: "\f028";
+}
+
 .dragQuestion .h5p-dragnbar-dropzone-button:before {
   content: '\f140';
 }
