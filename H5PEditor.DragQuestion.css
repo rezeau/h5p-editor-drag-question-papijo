@@ -489,3 +489,7 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
 .h5p-theme .h5p-draggable.h5p-draggable--has-handle:before {
  margin-left: -10px!important;
 }
+
+.h5p-dragquestion-editor.h5peditor-warning {
+  color: red;
+}

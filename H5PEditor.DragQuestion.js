@@ -44,6 +44,15 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       this.setSize(params);
     });
 
+    // Are we creating a new D&D content or editing a content (isSetBehaviour is true);
+    var isSetBehaviour = parent.parent.params.behaviour;
+
+    // Need the override background opacity for draggables
+    this.backgroundOpacity = (isSetBehaviour === undefined) ? undefined : parent.parent.params.behaviour.backgroundOpacity;
+
+    // Need the override background opacity for dropZones
+    this.backgroundOpacityDropZones = (isSetBehaviour === undefined) ? undefined : parent.parent.params.behaviour.backgroundOpacityDropZones;
+    
     // Update opacity and handles for all dropzones/draggables when global background opacity and handles are changed
     parent.ready(() => {
       const backgroundOpacityInput = H5PEditor.findField('../behaviour/backgroundOpacity', parent).$item.find('input');
@@ -959,13 +968,14 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       }
     };
 
-    // Disable background opacity input if overriden globally
-    var disableOpacityField = !!(that.params.elements[id].dropZones.length !== 0 && this.backgroundOpacity);
+    // Disable background opacity input for DRAGGABLE if overriden globally
+    var disableOpacityField = !!(that.params.elements[id].dropZones.length !== 0 && this.backgroundOpacity);    
     H5PEditor.findField('backgroundOpacity', element).$item.find('input').prop({
-      disabled: disableOpacityField,
-      title: disableOpacityField ? C.t('backgroundOpacityOverridden') : ''
+      disabled: disableOpacityField
     });
-
+    if (disableOpacityField) {
+      H5PEditor.findField('backgroundOpacity', element).$item.find('input').before('<div class="h5p-dragquestion-editor h5peditor-warning">' + C.t('backgroundOpacityOverridden') + '</div>');
+    }
     element.children[this.elementDropZoneFieldWeight].setActive();
     this.showDialog(element.$form);
 
@@ -1390,6 +1400,20 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       }
     }
 
+    // Disable background opacity input for dropzones if overriden globally
+    var disableOpacityField = !!(that.params.dropZones[id].correctElements.length !== 0 && this.backgroundOpacityDropZones);    
+    var $previous = H5PEditor.findField('backgroundOpacity', dropZone).$item.find('input').prev();
+    var $hasWarning = $previous.hasClass( 'h5peditor-warning' )
+    if ($hasWarning) {
+      $previous.remove();
+    }
+    H5PEditor.findField('backgroundOpacity', dropZone).$item.find('input').prop({
+      disabled: disableOpacityField
+    });
+    if (disableOpacityField) {
+      H5PEditor.findField('backgroundOpacity', dropZone).$item.find('input').before('<div class="h5p-dragquestion-editor h5peditor-warning">' + C.t('backgroundOpacityOverridden') + '</div>');
+    }
+
     dropZone.children[this.dropZoneElementFieldWeight].setActive();
     this.showDialog(dropZone.$form);
 
@@ -1408,7 +1432,6 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    */
   C.prototype.updateDropZone = function (dropZone, id) {
     var params = this.params.dropZones[id];
-
     // Remove old label and add new.
     dropZone.$dropZone.children('.h5p-dq-dz-label').remove();
     if (params.showLabel === true) {
@@ -1429,6 +1452,11 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       value: '' + id,
       label: params.label
     };
+    if (this.backgroundOpacityDropZones === undefined) {
+      opacity = params.backgroundOpacity;
+    } else {
+      opacity = this.backgroundOpacityDropZones;
+    }
     // JR Add tooltip title to make editing easier for dropzones where label is not displayed.
     $element = dropZone.$dropZone.add(dropZone.$dropZone.children('.h5p-dq-dz-label'));
     if (!params.showLabel) {
