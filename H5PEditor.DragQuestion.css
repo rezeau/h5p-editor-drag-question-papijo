@@ -150,6 +150,11 @@
   outline-offset: -2px;
 }
 
+.h5peditor-dragquestion .h5p-dragnbar-element.papijo-secondary-selected:not(.focused) {
+  outline: 2px dashed #0b6f9c;
+  outline-offset: 2px;
+}
+
 .h5peditor-dragquestion .h5p-dragnbar-element:not(.focused):focus {
   outline: none;
 }

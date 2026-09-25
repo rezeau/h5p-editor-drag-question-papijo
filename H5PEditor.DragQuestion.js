@@ -16,6 +16,14 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   var clipboardKey = 'H5PEditor.DragQuestion';
 
   /**
+   * Editor-only class used to distinguish secondary selections from the
+   * DragNBar primary selection.
+   *
+   * @type {string}
+   */
+  var secondarySelectionClass = 'papijo-secondary-selected';
+
+  /**
    * Initialize interactive video editor.
    *
    * @param {Object} parent
@@ -25,6 +33,9 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    */
   function C(parent, field, params, setValue) {
     var that = this;
+
+    // Secondary selections are transient editor state and are never saved.
+    this.secondarySelections = [];
 
     this.fakeDropzoneLibrary = 'H5P.DragQuestionDropzone 0.1';
 
@@ -386,6 +397,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    */
   C.prototype.activateEditor = function (libraries) {
     var that = this;
+    this.removeMultiSelectionHandlers();
     this.$editor.html('').addClass('h5p-ready');
 
     // Ignore fake libraries
@@ -396,6 +408,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     // Create new bar
     this.dnb = new DragNBar(this.getButtons(buttonLibraries), this.$editor, this.$item, {libraries: libraries});
     that.dnb.dnr.snap = 10;
+    this.initializeMultiSelection();
 
     // Add event handling
     this.dnb.stopMovingCallback = function (x, y) {
@@ -506,6 +519,217 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     }
 
     this.resize();
+  };
+
+  /**
+   * Set up editor-local multi-selection handling.
+   *
+   * Capture phase is required here: DragNBar registers mousedown directly on
+   * each element and would otherwise focus and start dragging it first.
+   */
+  C.prototype.initializeMultiSelection = function () {
+    var that = this;
+    var originalFocus = this.dnb.focus.bind(this.dnb);
+    var originalBlurAll = this.dnb.blurAll.bind(this.dnb);
+
+    this.secondarySelections = [];
+    this.multiSelectionMouseDownElement = null;
+    this.multiSelectionMouseDownHandler = this.handleMultiSelectionMouseDown.bind(this);
+    this.multiSelectionClickHandler = this.handleMultiSelectionClick.bind(this);
+
+    this.$editor[0].addEventListener('mousedown', this.multiSelectionMouseDownHandler, true);
+    this.$editor[0].addEventListener('click', this.multiSelectionClickHandler, true);
+
+    // Keep secondary state in sync when DragNBar changes or clears the primary
+    // through mouse, keyboard, or an existing editor action.
+    this.dnb.focus = function ($element) {
+      if (!that.isPrimarySelection($element[0])) {
+        that.clearMultiSelection();
+      }
+      return originalFocus($element);
+    };
+    this.dnb.blurAll = function () {
+      that.clearMultiSelection();
+      return originalBlurAll();
+    };
+  };
+
+  /**
+   * Remove DOM handlers used for multi-selection.
+   */
+  C.prototype.removeMultiSelectionHandlers = function () {
+    if (!this.$editor || !this.$editor[0]) {
+      return;
+    }
+
+    if (this.multiSelectionMouseDownHandler) {
+      this.$editor[0].removeEventListener('mousedown', this.multiSelectionMouseDownHandler, true);
+      delete this.multiSelectionMouseDownHandler;
+    }
+    if (this.multiSelectionClickHandler) {
+      this.$editor[0].removeEventListener('click', this.multiSelectionClickHandler, true);
+      delete this.multiSelectionClickHandler;
+    }
+  };
+
+  /**
+   * Find the DragNBar element containing an event target.
+   *
+   * @param {HTMLElement} target Event target.
+   * @returns {HTMLElement|null} Selectable element.
+   */
+  C.prototype.getSelectableElement = function (target) {
+    var editor = this.$editor[0];
+    var element = target;
+
+    while (element && element !== editor) {
+      if (element.classList && element.classList.contains('h5p-dragnbar-element')) {
+        return element;
+      }
+      element = element.parentNode;
+    }
+
+    return null;
+  };
+
+  /**
+   * Check whether an element is the DragNBar primary selection.
+   *
+   * @param {HTMLElement} element Element to check.
+   * @returns {boolean} Whether the element is primary.
+   */
+  C.prototype.isPrimarySelection = function (element) {
+    if (!this.dnb || !this.dnb.focusedElement) {
+      return false;
+    }
+
+    return this.dnb.focusedElement.getElement()[0] === element;
+  };
+
+  /**
+   * Check whether an element is a secondary selection.
+   *
+   * @param {HTMLElement} element Element to check.
+   * @returns {boolean} Whether the element is secondary.
+   */
+  C.prototype.isSecondarySelected = function (element) {
+    return this.secondarySelections.indexOf(element) !== -1;
+  };
+
+  /**
+   * Add an element to the secondary selection.
+   *
+   * @param {HTMLElement} element Element to add.
+   */
+  C.prototype.addSecondarySelection = function (element) {
+    if (this.isPrimarySelection(element) || this.isSecondarySelected(element)) {
+      return;
+    }
+
+    this.secondarySelections.push(element);
+    $(element).addClass(secondarySelectionClass);
+  };
+
+  /**
+   * Remove an element from the secondary selection.
+   *
+   * @param {HTMLElement} element Element to remove.
+   */
+  C.prototype.removeSecondarySelection = function (element) {
+    var index = this.secondarySelections.indexOf(element);
+    if (index === -1) {
+      return;
+    }
+
+    this.secondarySelections.splice(index, 1);
+    $(element).removeClass(secondarySelectionClass);
+  };
+
+  /**
+   * Toggle an element in the secondary selection.
+   *
+   * @param {HTMLElement} element Element to toggle.
+   */
+  C.prototype.toggleSecondarySelection = function (element) {
+    if (this.isSecondarySelected(element)) {
+      this.removeSecondarySelection(element);
+    }
+    else {
+      this.addSecondarySelection(element);
+    }
+  };
+
+  /**
+   * Clear all secondary selections.
+   */
+  C.prototype.clearMultiSelection = function () {
+    this.secondarySelections.forEach(function (element) {
+      $(element).removeClass(secondarySelectionClass);
+    });
+    this.secondarySelections = [];
+  };
+
+  /**
+   * Handle selection on mouse down before DragNBar sees the event.
+   *
+   * @param {MouseEvent} event Mouse event.
+   */
+  C.prototype.handleMultiSelectionMouseDown = function (event) {
+    var element = this.getSelectableElement(event.target);
+    var hasModifier = event.ctrlKey || event.shiftKey;
+
+    this.multiSelectionMouseDownElement = null;
+
+    if (event.button !== 0) {
+      return;
+    }
+
+    if (!hasModifier) {
+      this.clearMultiSelection();
+      return;
+    }
+
+    if (!element) {
+      return;
+    }
+
+    // Prevent native focus, DragNBar focus, and DragNBar drag press.
+    event.preventDefault();
+    event.stopPropagation();
+    this.multiSelectionMouseDownElement = element;
+
+    if (!this.isPrimarySelection(element)) {
+      this.toggleSecondarySelection(element);
+    }
+  };
+
+  /**
+   * Suppress the click that follows an intercepted modifier mousedown.
+   * This also protects the primary if the modifier key is released before
+   * mouseup. Synthetic modifier-clicks are handled here as a fallback.
+   *
+   * @param {MouseEvent} event Mouse event.
+   */
+  C.prototype.handleMultiSelectionClick = function (event) {
+    var element = this.getSelectableElement(event.target);
+    var mouseDownElement = this.multiSelectionMouseDownElement;
+    this.multiSelectionMouseDownElement = null;
+
+    if (mouseDownElement && mouseDownElement === element) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    if (!(event.ctrlKey || event.shiftKey) || !element) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.isPrimarySelection(element)) {
+      this.toggleSecondarySelection(element);
+    }
   };
 
   /**
@@ -1654,6 +1878,8 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    * @returns {undefined}
    */
   C.prototype.remove = function () {
+    this.clearMultiSelection();
+    this.removeMultiSelectionHandlers();
     if (this.dnb !== undefined) {
       this.dnb.remove();
     }
