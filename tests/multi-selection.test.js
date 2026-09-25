@@ -58,6 +58,25 @@ class FakeJQuery {
     this[0].classList.remove(className);
     return this;
   }
+
+  add() {
+    return this;
+  }
+
+  appendTo(target) {
+    this[0].appendedTo = target[0];
+    return this;
+  }
+
+  hide() {
+    this[0].hidden = true;
+    return this;
+  }
+
+  show() {
+    this[0].hidden = false;
+    return this;
+  }
 }
 
 function $(element) {
@@ -241,4 +260,118 @@ test('refocusing the current primary preserves secondary state', () => {
 
   assert.equal(focused, primary);
   assert.equal(instance.isSecondarySelected(draggable), true);
+});
+
+test('opening an edit dialog clears multi-selection through wrapped blurAll', () => {
+  const {instance, draggable} = setup();
+  const dialog = new FakeElement();
+  const dialogInner = new FakeElement();
+  const toolbar = new FakeElement();
+  const form = new FakeElement();
+  let blurCalls = 0;
+  let modifiersEnabled = true;
+
+  instance.dnb.focus = () => {};
+  instance.dnb.blurAll = () => {
+    blurCalls++;
+  };
+  instance.dnb.dnr = {
+    toggleModifiers: (enabled) => {
+      modifiersEnabled = enabled;
+    },
+  };
+  instance.$dialog = $(dialog);
+  instance.$dialogInner = $(dialogInner);
+  instance.$dnbWrapper = $(toolbar);
+  instance.initializeMultiSelection();
+  instance.addSecondarySelection(draggable);
+
+  instance.showDialog($(form));
+
+  assert.equal(blurCalls, 1);
+  assert.equal(instance.secondarySelections.length, 0);
+  assert.equal(draggable.classList.contains('papijo-secondary-selected'), false);
+  assert.equal(form.appendedTo, dialogInner);
+  assert.equal(dialog.hidden, false);
+  assert.equal(modifiersEnabled, false);
+});
+
+test('post-removal blur clears detached secondary references and classes', () => {
+  const {instance, draggable, dropZone} = setup();
+  let blurCalls = 0;
+
+  instance.dnb.focus = () => {};
+  instance.dnb.blurAll = () => {
+    blurCalls++;
+  };
+  instance.initializeMultiSelection();
+  instance.addSecondarySelection(draggable);
+  instance.addSecondarySelection(dropZone);
+
+  // Confirmed removal detaches an element before the existing blurAll call.
+  draggable.parentNode = null;
+  instance.dnb.blurAll();
+
+  assert.equal(blurCalls, 1);
+  assert.equal(instance.secondarySelections.length, 0);
+  assert.equal(draggable.classList.contains('papijo-secondary-selected'), false);
+  assert.equal(dropZone.classList.contains('papijo-secondary-selected'), false);
+});
+
+test('new-object focus used by create and paste clears old secondaries', () => {
+  const {instance, draggable, dropZone} = setup();
+  let focused = null;
+
+  instance.dnb.focus = ($element) => {
+    focused = $element[0];
+  };
+  instance.dnb.blurAll = () => {};
+  instance.initializeMultiSelection();
+  instance.addSecondarySelection(draggable);
+
+  instance.dnb.focus($(dropZone));
+
+  assert.equal(focused, dropZone);
+  assert.equal(instance.secondarySelections.length, 0);
+  assert.equal(draggable.classList.contains('papijo-secondary-selected'), false);
+});
+
+test('z-order ID changes preserve selection on the same DOM objects', () => {
+  const {instance, draggable, dropZone} = setup();
+  instance.addSecondarySelection(draggable);
+  instance.addSecondarySelection(dropZone);
+
+  // Bring-to-front/send-to-back and reindexing update IDs, not DOM objects.
+  draggable.dataId = 4;
+  dropZone.dataId = 0;
+
+  assert.equal(instance.isSecondarySelected(draggable), true);
+  assert.equal(instance.isSecondarySelected(dropZone), true);
+  assert.equal(instance.secondarySelections[0], draggable);
+  assert.equal(instance.secondarySelections[1], dropZone);
+});
+
+test('teardown and reinitialization do not duplicate capture handlers', () => {
+  const {instance, editor, draggable} = setup();
+  instance.dnb.focus = () => {};
+  instance.dnb.blurAll = () => {};
+
+  instance.initializeMultiSelection();
+  instance.addSecondarySelection(draggable);
+  assert.equal(editor.listeners.mousedown.length, 1);
+  assert.equal(editor.listeners.click.length, 1);
+
+  // Mirrors the selection/listener cleanup performed by remove/activateEditor.
+  instance.clearMultiSelection();
+  instance.removeMultiSelectionHandlers();
+  instance.dnb = {
+    focus: () => {},
+    blurAll: () => {},
+  };
+  instance.initializeMultiSelection();
+
+  assert.equal(editor.listeners.mousedown.length, 1);
+  assert.equal(editor.listeners.click.length, 1);
+  assert.equal(instance.secondarySelections.length, 0);
+  assert.equal(draggable.classList.contains('papijo-secondary-selected'), false);
 });
