@@ -28,6 +28,9 @@
     "resize": "Redimensionner",
     "sameWidth": "Même largeur",
     "sameHeight": "Même hauteur",
-    "sameSize": "Même taille"
+    "sameSize": "Même taille",
+    "distribute": "Distribuer",
+    "distributeHorizontally": "Distribuer horizontalement",
+    "distributeVertically": "Distribuer verticalement"
   }
 }

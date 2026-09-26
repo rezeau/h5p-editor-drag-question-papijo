@@ -708,6 +708,18 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   };
 
   /**
+   * Get the distribution actions exposed by the PapiJo-owned panel.
+   *
+   * @returns {Object[]} Distribution action descriptors.
+   */
+  C.prototype.getDistributionActions = function () {
+    return [
+      {mode: 'horizontal', label: C.t('distributeHorizontally'), symbol: 'H\u2194'},
+      {mode: 'vertical', label: C.t('distributeVertically'), symbol: 'V\u2195'}
+    ];
+  };
+
+  /**
    * Add a conditional multi-selection trigger and its PapiJo-owned panel.
    * DragNBar's public button extension is used for the trigger only.
    *
@@ -729,6 +741,9 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       .appendTo($panel);
     var $sizeGroup = $('<div class="papijo-multi-selection-group" role="group"></div>')
       .attr('aria-label', C.t('resize'))
+      .appendTo($panel);
+    var $distributionGroup = $('<div class="papijo-multi-selection-group" role="group"></div>')
+      .attr('aria-label', C.t('distribute'))
       .appendTo($panel);
     var control = {
       dnbElement: dnbElement,
@@ -781,6 +796,27 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
           that.sizeSelection(action.mode);
         })
         .appendTo($sizeGroup);
+    });
+
+    $('<span class="papijo-multi-selection-heading"></span>')
+      .text(C.t('distribute'))
+      .appendTo($distributionGroup);
+    this.getDistributionActions().forEach(function (action) {
+      $('<button type="button" class="papijo-distribution-action papijo-multi-selection-action"></button>')
+        .attr('data-distribution-mode', action.mode)
+        .attr('aria-label', action.label)
+        .attr('title', action.label)
+        .text(action.symbol)
+        .on('mousedown', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        })
+        .on('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          that.distributeSelection(action.mode);
+        })
+        .appendTo($distributionGroup);
     });
 
     contextMenu.on('contextMenuPapiJoAlign', function () {
@@ -1369,6 +1405,98 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       }
     }, this);
     return applied;
+  };
+
+  /**
+   * Prepare one whole-group equal-gap distribution plan.
+   *
+   * @param {string} mode Distribution mode: horizontal or vertical.
+   * @returns {Object[]|null} Complete prepared plan, or null when invalid.
+   */
+  C.prototype.prepareDistributionPlan = function (mode) {
+    var selection = this.getGeometrySelection();
+    if (selection.length < 3 || ['horizontal', 'vertical'].indexOf(mode) === -1) {
+      return null;
+    }
+
+    var entries = selection.map(function (object) {
+      return {
+        object: object,
+        rect: this.measureGeometryObject(object)
+      };
+    }, this);
+    if (entries.some(function (entry) { return !entry.rect; })) {
+      return null;
+    }
+
+    var start = mode === 'horizontal' ? 'left' : 'top';
+    var end = mode === 'horizontal' ? 'right' : 'bottom';
+    var size = mode === 'horizontal' ? 'width' : 'height';
+    var tolerance = 0.01;
+    var minimumStart = Math.min.apply(null, entries.map(function (entry) {
+      return entry.rect[start];
+    }));
+    var maximumEnd = Math.max.apply(null, entries.map(function (entry) {
+      return entry.rect[end];
+    }));
+    var startEndpoints = entries.filter(function (entry) {
+      return Math.abs(entry.rect[start] - minimumStart) < tolerance;
+    });
+    var endEndpoints = entries.filter(function (entry) {
+      return Math.abs(entry.rect[end] - maximumEnd) < tolerance;
+    });
+
+    if (startEndpoints.length !== 1 || endEndpoints.length !== 1 ||
+        startEndpoints[0] === endEndpoints[0]) {
+      return null;
+    }
+
+    var primary = entries[0];
+    var startEndpoint = startEndpoints[0];
+    var endEndpoint = endEndpoints[0];
+    if (primary !== startEndpoint && primary !== endEndpoint) {
+      return null;
+    }
+
+    var internal = entries.filter(function (entry) {
+      return entry !== startEndpoint && entry !== endEndpoint;
+    }).sort(function (a, b) {
+      return a.rect[start] - b.rect[start] || a.rect[end] - b.rect[end];
+    });
+    var ordered = [startEndpoint].concat(internal, [endEndpoint]);
+    var totalSize = entries.reduce(function (total, entry) {
+      return total + entry.rect[size];
+    }, 0);
+    var gap = (maximumEnd - minimumStart - totalSize) / (entries.length - 1);
+    if (!isFinite(gap) || gap < 0) {
+      return null;
+    }
+
+    var updates = [];
+    var nextPosition = startEndpoint.rect[end] + gap;
+    for (var i = 1; i < ordered.length - 1; i++) {
+      var changes = {};
+      changes[start] = nextPosition;
+      var update = this.prepareGeometryUpdate(ordered[i].object, changes);
+      if (!update) {
+        return null;
+      }
+      updates.push(update);
+      nextPosition += ordered[i].rect[size] + gap;
+    }
+
+    return updates;
+  };
+
+  /**
+   * Atomically distribute internal selected objects between fixed endpoints.
+   *
+   * @param {string} mode Distribution mode: horizontal or vertical.
+   * @returns {boolean} Whether the complete distribution was applied.
+   */
+  C.prototype.distributeSelection = function (mode) {
+    var updates = this.prepareDistributionPlan(mode);
+    return updates ? this.applyGeometryPlan(updates) : false;
   };
 
   /**

@@ -19,6 +19,9 @@ const labels = {
   sameWidth: 'Same width',
   sameHeight: 'Same height',
   sameSize: 'Same size',
+  distribute: 'Distribute',
+  distributeHorizontally: 'Distribute horizontally',
+  distributeVertically: 'Distribute vertically',
 };
 
 class FakeElement {
@@ -224,6 +227,68 @@ function setup() {
   };
 
   return {instance, editor, primary, secondary, dropZone, params, primaryDnb};
+}
+
+function setupDistribution() {
+  const editor = new FakeElement([], {left: 100, top: 50, width: 504, height: 304}, {
+    width: '500px',
+    height: '300px',
+    borderLeftWidth: '2px',
+    borderRightWidth: '2px',
+    borderTopWidth: '2px',
+    borderBottomWidth: '2px',
+  });
+  const a = new FakeElement(['h5p-dq-element', 'focused'], {
+    left: 122, top: 72, width: 50, height: 40,
+  });
+  const b = new FakeElement(['h5p-dq-element', 'papijo-secondary-selected'], {
+    left: 202, top: 142, width: 30, height: 30,
+  });
+  const c = new FakeElement(['h5p-dq-dz', 'papijo-secondary-selected'], {
+    left: 282, top: 212, width: 60, height: 20,
+  });
+  const d = new FakeElement(['h5p-dq-element', 'papijo-secondary-selected'], {
+    left: 402, top: 312, width: 40, height: 20,
+  });
+  const params = {
+    elements: [
+      {x: 4, y: 20 / 3, width: 5, height: 4},
+      {x: 20, y: 30, width: 3, height: 3},
+      {x: 60, y: 260 / 3, width: 4, height: 2},
+    ],
+    dropZones: [{x: 36, y: 160 / 3, width: 6, height: 2}],
+  };
+  const primaryDnb = {getElement: () => $(a)};
+  const instance = Object.create(DragQuestion.prototype);
+
+  $(a).data('id', 0);
+  $(b).data('id', 1);
+  $(d).data('id', 2);
+  $(c).data('id', 0);
+  instance.$editor = $(editor);
+  instance.elements = [{$element: $(a)}, {$element: $(b)}, {$element: $(d)}];
+  instance.dropZones = [{$dropZone: $(c)}];
+  instance.params = params;
+  instance.secondarySelections = [c, d, b];
+  instance.alignControls = [];
+  instance.dnb = {dnr: {containerEm: 10}, focusedElement: primaryDnb};
+
+  return {instance, editor, a, b, c, d, params, primaryDnb};
+}
+
+function setDistributionPrimary(context, primary, secondaries) {
+  [context.a, context.b, context.c, context.d].forEach((element) => {
+    element.classes.delete('focused');
+    element.classes.delete('papijo-secondary-selected');
+  });
+  primary.classes.add('focused');
+  secondaries.forEach((element) => element.classes.add('papijo-secondary-selected'));
+  context.instance.dnb.focusedElement = {getElement: () => $(primary)};
+  context.instance.secondarySelections = secondaries;
+}
+
+function assertClose(actual, expected) {
+  assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} is not close to ${expected}`);
 }
 
 const modes = [
@@ -526,6 +591,188 @@ test('Same Size applies the 24px minimum to both requested dimensions', () => {
   assert.deepEqual(short.secondary.appliedStyles, {});
 });
 
+test('horizontal distribution with three objects produces equal edge gaps', () => {
+  const context = setupDistribution();
+  setDistributionPrimary(context, context.a, [context.c, context.d]);
+
+  assert.equal(context.instance.distributeSelection('horizontal'), true);
+  assert.equal(context.c.appliedStyles.left, '31%');
+  assert.equal(context.params.dropZones[0].x, 31);
+  assert.deepEqual(context.a.appliedStyles, {});
+  assert.deepEqual(context.d.appliedStyles, {});
+  assert.equal(Object.hasOwn(context.c.appliedStyles, 'top'), false);
+});
+
+test('vertical distribution with three objects produces equal edge gaps', () => {
+  const context = setupDistribution();
+  setDistributionPrimary(context, context.a, [context.b, context.d]);
+
+  assert.equal(context.instance.distributeSelection('vertical'), true);
+  assertClose(context.params.elements[1].y, 145 / 3);
+  assert.equal(context.b.appliedStyles.top, `${145 / 3}%`);
+  assert.deepEqual(context.a.appliedStyles, {});
+  assert.deepEqual(context.d.appliedStyles, {});
+  assert.equal(Object.hasOwn(context.b.appliedStyles, 'left'), false);
+});
+
+test('horizontal distribution uses spatial order and different rendered widths', () => {
+  const context = setupDistribution();
+  const bSize = {width: context.params.elements[1].width, height: context.params.elements[1].height};
+  const cSize = {width: context.params.dropZones[0].width, height: context.params.dropZones[0].height};
+
+  assert.equal(context.instance.distributeSelection('horizontal'), true);
+  assertClose(context.params.elements[1].x, 70 / 3);
+  assertClose(context.params.dropZones[0].x, 116 / 3);
+  assert.equal(context.b.appliedStyles.left, `${70 / 3}%`);
+  assert.equal(context.c.appliedStyles.left, `${116 / 3}%`);
+  assert.equal(context.params.elements[1].y, 30);
+  assert.equal(context.params.dropZones[0].y, 160 / 3);
+  assert.deepEqual(
+    {width: context.params.elements[1].width, height: context.params.elements[1].height}, bSize);
+  assert.deepEqual(
+    {width: context.params.dropZones[0].width, height: context.params.dropZones[0].height}, cSize);
+  assert.deepEqual(context.a.appliedStyles, {});
+  assert.deepEqual(context.d.appliedStyles, {});
+});
+
+test('vertical distribution uses spatial order and different rendered heights', () => {
+  const context = setupDistribution();
+
+  assert.equal(context.instance.distributeSelection('vertical'), true);
+  assertClose(context.params.elements[1].y, 110 / 3);
+  assertClose(context.params.dropZones[0].y, 190 / 3);
+  assert.equal(context.b.appliedStyles.top, `${110 / 3}%`);
+  assert.equal(context.c.appliedStyles.top, `${190 / 3}%`);
+  assert.equal(context.params.elements[1].x, 20);
+  assert.equal(context.params.dropZones[0].x, 36);
+  assert.equal(Object.hasOwn(context.b.appliedStyles, 'width'), false);
+  assert.equal(Object.hasOwn(context.b.appliedStyles, 'height'), false);
+  assert.deepEqual(context.a.appliedStyles, {});
+  assert.deepEqual(context.d.appliedStyles, {});
+});
+
+test('right-endpoint primary stays fixed during horizontal distribution', () => {
+  const context = setupDistribution();
+  setDistributionPrimary(context, context.d, [context.c, context.a, context.b]);
+  const focused = context.instance.dnb.focusedElement;
+
+  assert.equal(context.instance.distributeSelection('horizontal'), true);
+  assert.deepEqual(context.a.appliedStyles, {});
+  assert.deepEqual(context.d.appliedStyles, {});
+  assert.equal(context.instance.dnb.focusedElement, focused);
+  assert.deepEqual(context.instance.secondarySelections, [context.c, context.a, context.b]);
+  assert.equal(context.a.classes.has('focused'), false);
+  assert.equal(context.b.classes.has('focused'), false);
+  assert.equal(context.c.classes.has('focused'), false);
+});
+
+test('bottom-endpoint primary stays fixed during vertical distribution', () => {
+  const context = setupDistribution();
+  setDistributionPrimary(context, context.d, [context.b, context.a, context.c]);
+
+  assert.equal(context.instance.distributeSelection('vertical'), true);
+  assert.deepEqual(context.a.appliedStyles, {});
+  assert.deepEqual(context.d.appliedStyles, {});
+  assert.equal(context.d.classes.has('focused'), true);
+  assert.equal(context.instance.secondarySelections.length, 3);
+});
+
+test('distribution requires three objects and a primary endpoint', () => {
+  const tooFew = setup();
+  assert.equal(tooFew.instance.distributeSelection('horizontal'), false);
+  assert.deepEqual(tooFew.secondary.appliedStyles, {});
+
+  const horizontalInternal = setupDistribution();
+  setDistributionPrimary(horizontalInternal, horizontalInternal.b,
+    [horizontalInternal.a, horizontalInternal.c, horizontalInternal.d]);
+  assert.equal(horizontalInternal.instance.distributeSelection('horizontal'), false);
+
+  const verticalInternal = setupDistribution();
+  setDistributionPrimary(verticalInternal, verticalInternal.b,
+    [verticalInternal.a, verticalInternal.c, verticalInternal.d]);
+  assert.equal(verticalInternal.instance.distributeSelection('vertical'), false);
+  [horizontalInternal, verticalInternal].forEach((context) => {
+    assert.deepEqual(context.a.appliedStyles, {});
+    assert.deepEqual(context.b.appliedStyles, {});
+    assert.deepEqual(context.c.appliedStyles, {});
+    assert.deepEqual(context.d.appliedStyles, {});
+  });
+});
+
+test('ambiguous horizontal endpoints are conservative no-ops', () => {
+  const leftTie = setupDistribution();
+  leftTie.b.rect.left = leftTie.a.rect.left;
+  assert.equal(leftTie.instance.distributeSelection('horizontal'), false);
+
+  const rightTie = setupDistribution();
+  rightTie.c.rect.left = rightTie.d.rect.left - 20;
+  assert.equal(rightTie.instance.distributeSelection('horizontal'), false);
+
+  [leftTie, rightTie].forEach((context) => {
+    assert.deepEqual(context.b.appliedStyles, {});
+    assert.deepEqual(context.c.appliedStyles, {});
+  });
+});
+
+test('ambiguous vertical endpoints are conservative no-ops', () => {
+  const topTie = setupDistribution();
+  topTie.b.rect.top = topTie.a.rect.top;
+  assert.equal(topTie.instance.distributeSelection('vertical'), false);
+
+  const bottomTie = setupDistribution();
+  bottomTie.c.rect.top = bottomTie.d.rect.top;
+  assert.equal(bottomTie.instance.distributeSelection('vertical'), false);
+
+  [topTie, bottomTie].forEach((context) => {
+    assert.deepEqual(context.b.appliedStyles, {});
+    assert.deepEqual(context.c.appliedStyles, {});
+  });
+});
+
+test('negative horizontal and vertical gaps are complete no-ops', () => {
+  const horizontal = setupDistribution();
+  horizontal.b.rect.width = 200;
+  horizontal.c.rect.width = 100;
+  assert.equal(horizontal.instance.distributeSelection('horizontal'), false);
+
+  const vertical = setupDistribution();
+  vertical.b.rect.height = 150;
+  vertical.c.rect.height = 100;
+  assert.equal(vertical.instance.distributeSelection('vertical'), false);
+
+  [horizontal, vertical].forEach((context) => {
+    assert.deepEqual(context.b.appliedStyles, {});
+    assert.deepEqual(context.c.appliedStyles, {});
+    assert.deepEqual(context.params.elements[1], {x: 20, y: 30, width: 3, height: 3});
+  });
+});
+
+test('zero horizontal and vertical gaps are valid', () => {
+  const horizontal = setupDistribution();
+  horizontal.b.rect.width = 170;
+  assert.equal(horizontal.instance.distributeSelection('horizontal'), true);
+  assert.equal(horizontal.b.appliedStyles.left, '14%');
+  assert.equal(horizontal.c.appliedStyles.left, '48%');
+
+  const vertical = setupDistribution();
+  vertical.b.rect.height = 100;
+  vertical.c.rect.height = 100;
+  assert.equal(vertical.instance.distributeSelection('vertical'), true);
+  assert.equal(vertical.b.appliedStyles.top, '20%');
+  assertClose(vertical.params.dropZones[0].y, 160 / 3);
+});
+
+test('invalid internal geometry rejects the complete distribution plan', () => {
+  const context = setupDistribution();
+  context.b.rect.top = 342;
+  const original = JSON.parse(JSON.stringify(context.params));
+
+  assert.equal(context.instance.distributeSelection('horizontal'), false);
+  assert.deepEqual(context.b.appliedStyles, {});
+  assert.deepEqual(context.c.appliedStyles, {});
+  assert.deepEqual(context.params, original);
+});
+
 test('Align panel descriptors expose exactly the six intended accessible actions', () => {
   const {instance} = setup();
   const actions = instance.getAlignmentActions();
@@ -545,7 +792,16 @@ test('Resize panel descriptors expose exactly the three intended accessible acti
     'Same width,Same height,Same size');
 });
 
-test('combined control builds six Align and three Resize actions in logical groups', () => {
+test('Distribute descriptors expose exactly two accessible actions', () => {
+  const {instance} = setup();
+  const actions = instance.getDistributionActions();
+
+  assert.equal(actions.map((action) => action.mode).join(','), 'horizontal,vertical');
+  assert.equal(actions.map((action) => action.label).join(','),
+    'Distribute horizontally,Distribute vertically');
+});
+
+test('combined panel exposes six Align, three Resize, and two Distribute actions', () => {
   const {instance} = setup();
   const menuElement = new FakeElement();
   const contextMenu = {
@@ -573,13 +829,15 @@ test('combined control builds six Align and three Resize actions in logical grou
   }));
   assert.ok(panel);
   assert.equal(trigger.attributes['aria-label'], 'Arrange selection');
-  assert.equal(groups.length, 2);
-  assert.deepEqual(groups.map((group) => group.attributes['aria-label']), ['Align', 'Resize']);
-  assert.equal(buttons.length, 9);
+  assert.equal(groups.length, 3);
+  assert.deepEqual(groups.map((group) => group.attributes['aria-label']),
+    ['Align', 'Resize', 'Distribute']);
+  assert.equal(buttons.length, 11);
   assert.deepEqual(buttons.map((button) => button.attributes['aria-label']), [
     'Align left', 'Align center', 'Align right',
     'Align top', 'Align middle', 'Align bottom',
     'Same width', 'Same height', 'Same size',
+    'Distribute horizontally', 'Distribute vertically',
   ]);
 
   panel.hidden = false;

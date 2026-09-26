@@ -550,6 +550,10 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
   font-size: 0.7em;
 }
 
+.dragQuestion .papijo-distribution-action {
+  font-size: 0.75em;
+}
+
 .dragQuestion .papijo-multi-selection-action:hover,
 .dragQuestion .papijo-multi-selection-action:focus {
   border-color: #006bb3;
