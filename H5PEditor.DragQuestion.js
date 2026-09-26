@@ -36,6 +36,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
 
     // Secondary selections are transient editor state and are never saved.
     this.secondarySelections = [];
+    this.alignControls = [];
 
     this.fakeDropzoneLibrary = 'H5P.DragQuestionDropzone 0.1';
 
@@ -399,6 +400,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     var that = this;
     this.removeMultiSelectionHandlers();
     this.$editor.html('').addClass('h5p-ready');
+    this.alignControls = [];
 
     // Ignore fake libraries
     const buttonLibraries = libraries.filter(function (library) {
@@ -546,11 +548,15 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       if (!that.isPrimarySelection($element[0])) {
         that.clearMultiSelection();
       }
-      return originalFocus($element);
+      var result = originalFocus($element);
+      that.updateAlignUI();
+      return result;
     };
     this.dnb.blurAll = function () {
       that.clearMultiSelection();
-      return originalBlurAll();
+      var result = originalBlurAll();
+      that.updateAlignUI();
+      return result;
     };
   };
 
@@ -628,6 +634,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
 
     this.secondarySelections.push(element);
     $(element).addClass(secondarySelectionClass);
+    this.updateAlignUI();
   };
 
   /**
@@ -643,6 +650,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
 
     this.secondarySelections.splice(index, 1);
     $(element).removeClass(secondarySelectionClass);
+    this.updateAlignUI();
   };
 
   /**
@@ -667,6 +675,132 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       $(element).removeClass(secondarySelectionClass);
     });
     this.secondarySelections = [];
+    this.updateAlignUI();
+  };
+
+  /**
+   * Get the alignment actions exposed by the PapiJo-owned panel.
+   *
+   * @returns {Object[]} Alignment action descriptors.
+   */
+  C.prototype.getAlignmentActions = function () {
+    return [
+      {mode: 'left', label: C.t('alignLeft'), symbol: '\u2190'},
+      {mode: 'center', label: C.t('alignCenter'), symbol: '\u2194'},
+      {mode: 'right', label: C.t('alignRight'), symbol: '\u2192'},
+      {mode: 'top', label: C.t('alignTop'), symbol: '\u2191'},
+      {mode: 'middle', label: C.t('alignMiddle'), symbol: '\u2195'},
+      {mode: 'bottom', label: C.t('alignBottom'), symbol: '\u2193'}
+    ];
+  };
+
+  /**
+   * Add a conditional Align trigger and its PapiJo-owned action panel.
+   * DragNBar's public button extension is used for the trigger only.
+   *
+   * @param {Object} dnbElement DragNBar element.
+   */
+  C.prototype.addAlignControl = function (dnbElement) {
+    var that = this;
+    var contextMenu = dnbElement.contextMenu;
+
+    dnbElement.addButton('PapiJoAlign', C.t('align'));
+
+    var $trigger = contextMenu.$contextMenu.find('.papijoalign');
+    var $panel = $('<div class="papijo-align-panel" role="group"></div>')
+      .attr('aria-label', C.t('align'))
+      .hide()
+      .appendTo(contextMenu.$contextMenu);
+    var control = {
+      dnbElement: dnbElement,
+      $trigger: $trigger,
+      $panel: $panel
+    };
+
+    $trigger
+      .attr('aria-haspopup', 'true')
+      .attr('aria-expanded', 'false')
+      .hide();
+
+    this.getAlignmentActions().forEach(function (action) {
+      $('<button type="button" class="papijo-align-action"></button>')
+        .attr('data-align-mode', action.mode)
+        .attr('aria-label', action.label)
+        .attr('title', action.label)
+        .text(action.symbol)
+        .on('mousedown', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        })
+        .on('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          that.alignSelection(action.mode);
+        })
+        .appendTo($panel);
+    });
+
+    contextMenu.on('contextMenuPapiJoAlign', function () {
+      that.toggleAlignPanel(control);
+    });
+    contextMenu.on('contextMenuTransform', function () {
+      that.closeAlignPanels();
+    });
+    this.alignControls.push(control);
+    this.updateAlignUI();
+  };
+
+  /**
+   * Close every Align panel.
+   */
+  C.prototype.closeAlignPanels = function () {
+    (this.alignControls || []).forEach(function (control) {
+      control.$panel.hide();
+      control.$trigger.attr('aria-expanded', 'false').removeClass('active');
+    });
+  };
+
+  /**
+   * Keep Align controls synchronized with the current primary and selection.
+   */
+  C.prototype.updateAlignUI = function () {
+    if (!this.alignControls || !this.alignControls.length || !this.$editor) {
+      return;
+    }
+
+    var primaryDnbElement = this.dnb && this.dnb.focusedElement;
+    var selection = primaryDnbElement ? this.getGeometrySelection() : [];
+    var isMultiSelection = selection.length > 1;
+
+    this.$editor.toggleClass('papijo-has-multi-selection', isMultiSelection);
+    this.alignControls.forEach(function (control) {
+      var show = isMultiSelection && control.dnbElement === primaryDnbElement;
+      control.$trigger.toggle(show);
+      if (!show) {
+        control.$panel.hide();
+        control.$trigger.attr('aria-expanded', 'false').removeClass('active');
+      }
+    });
+  };
+
+  /**
+   * Toggle one Align panel if it still belongs to the current primary.
+   *
+   * @param {Object} control Align control record.
+   */
+  C.prototype.toggleAlignPanel = function (control) {
+    this.updateAlignUI();
+    if (!this.dnb || control.dnbElement !== this.dnb.focusedElement ||
+        this.getGeometrySelection().length < 2) {
+      this.closeAlignPanels();
+      return;
+    }
+
+    var shouldOpen = !control.$panel.is(':visible');
+    this.closeAlignPanels();
+    control.$panel.toggle(shouldOpen);
+    control.$trigger.attr('aria-expanded', shouldOpen ? 'true' : 'false')
+      .toggleClass('active', shouldOpen);
   };
 
   /**
@@ -1070,6 +1204,75 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   };
 
   /**
+   * Prepare all secondary position updates for one alignment operation.
+   * The primary is measured as the reference and is never an update target.
+   *
+   * @param {string} mode Alignment mode.
+   * @returns {Object[]|null} Complete prepared plan, or null when unavailable.
+   */
+  C.prototype.prepareAlignmentPlan = function (mode) {
+    var selection = this.getGeometrySelection();
+    if (selection.length < 2) {
+      return null;
+    }
+
+    var measurements = selection.map(function (object) {
+      return this.measureGeometryObject(object);
+    }, this);
+    if (measurements.some(function (measurement) { return !measurement; })) {
+      return null;
+    }
+
+    var primary = measurements[0];
+    var updates = [];
+    for (var i = 1; i < selection.length; i++) {
+      var secondary = measurements[i];
+      var changes = {};
+
+      if (mode === 'left') {
+        changes.left = primary.left;
+      }
+      else if (mode === 'center') {
+        changes.left = primary.centerX - (secondary.width / 2);
+      }
+      else if (mode === 'right') {
+        changes.left = primary.right - secondary.width;
+      }
+      else if (mode === 'top') {
+        changes.top = primary.top;
+      }
+      else if (mode === 'middle') {
+        changes.top = primary.centerY - (secondary.height / 2);
+      }
+      else if (mode === 'bottom') {
+        changes.top = primary.bottom - secondary.height;
+      }
+      else {
+        return null;
+      }
+
+      var update = this.prepareGeometryUpdate(selection[i], changes);
+      if (!update) {
+        return null;
+      }
+      updates.push(update);
+    }
+
+    return updates;
+  };
+
+  /**
+   * Align every secondary to the fixed primary using one atomic plan.
+   *
+   * @param {string} mode Alignment mode.
+   * @returns {boolean} Whether the complete alignment was applied.
+   */
+  C.prototype.alignSelection = function (mode) {
+    var updates = this.prepareAlignmentPlan(mode);
+    return updates ? this.applyGeometryPlan(updates) : false;
+  };
+
+  /**
    * Help center new elements
    * @param {object} params
    */
@@ -1292,6 +1495,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       dnbElement.contextMenu.on('contextMenuRemove', that.elementRemove.bind(that, element));
       dnbElement.contextMenu.on('contextMenuBringToFront', that.elementBringToFront.bind(that, element));
       dnbElement.contextMenu.on('contextMenuSendToBack', that.elementSendToBack.bind(that, element));
+      that.addAlignControl(dnbElement);
       that.dnb.focus(element.$element);
     }, 0);
 
@@ -1744,6 +1948,8 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
         that.editDropZone(dropZone);
         that.dnb.blurAll();
       });
+
+      that.addAlignControl(dropzoneDnBElement);
 
       dropzoneDnBElement.contextMenu.on('contextMenuRemove', function () {
         that.showConfirmationDialog({
@@ -2216,6 +2422,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
    */
   C.prototype.remove = function () {
     this.clearMultiSelection();
+    this.closeAlignPanels();
     this.removeMultiSelectionHandlers();
     if (this.dnb !== undefined) {
       this.dnb.remove();

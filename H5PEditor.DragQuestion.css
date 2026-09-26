@@ -498,3 +498,42 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
 .h5p-dragquestion-editor.h5peditor-warning {
   color: red;
 }
+
+.dragQuestion .h5p-dragnbar-context-menu-button.papijoalign:after {
+  content: '\f037';
+  font-family: "H5PFontAwesome4";
+}
+
+.dragQuestion .papijo-align-panel {
+  position: absolute;
+  top: 2.4em;
+  right: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(3, 2em);
+  gap: 0.15em;
+  padding: 0.25em;
+  border: 1px solid #0099ff;
+  border-radius: 0.15em;
+  background: #c4e3f7;
+  box-shadow: 0 0.15em 0.4em rgba(0, 0, 0, 0.25);
+}
+
+.dragQuestion .papijo-align-action {
+  width: 2em;
+  height: 2em;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.15em;
+  background: #fff;
+  color: #1a1a1a;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.dragQuestion .papijo-align-action:hover,
+.dragQuestion .papijo-align-action:focus {
+  border-color: #006bb3;
+  outline: none;
+}

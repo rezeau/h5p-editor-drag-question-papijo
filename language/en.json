@@ -16,6 +16,13 @@
     "deleteTaskTitle": "Deleting task",
     "cancel": "Cancel",
     "confirm": "Confirm",
-    "ok": "Ok"
+    "ok": "Ok",
+    "align": "Align",
+    "alignLeft": "Align left",
+    "alignCenter": "Align center",
+    "alignRight": "Align right",
+    "alignTop": "Align top",
+    "alignMiddle": "Align middle",
+    "alignBottom": "Align bottom"
   }
 }
