@@ -509,8 +509,8 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
   top: 2.4em;
   right: 0;
   z-index: 2;
-  display: grid;
-  grid-template-columns: repeat(3, 2em);
+  display: flex;
+  flex-direction: column;
   gap: 0.15em;
   padding: 0.25em;
   border: 1px solid #0099ff;
@@ -519,7 +519,21 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
   box-shadow: 0 0.15em 0.4em rgba(0, 0, 0, 0.25);
 }
 
-.dragQuestion .papijo-align-action {
+.dragQuestion .papijo-multi-selection-group {
+  display: grid;
+  grid-template-columns: repeat(3, 2em);
+  gap: 0.15em;
+}
+
+.dragQuestion .papijo-multi-selection-heading {
+  grid-column: 1 / -1;
+  color: #1a1a1a;
+  font-size: 0.75em;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.dragQuestion .papijo-multi-selection-action {
   width: 2em;
   height: 2em;
   padding: 0;
@@ -532,8 +546,12 @@ a.h5peditor-fd-button.h5peditor-remove:hover {
   line-height: 1;
 }
 
-.dragQuestion .papijo-align-action:hover,
-.dragQuestion .papijo-align-action:focus {
+.dragQuestion .papijo-size-action {
+  font-size: 0.7em;
+}
+
+.dragQuestion .papijo-multi-selection-action:hover,
+.dragQuestion .papijo-multi-selection-action:focus {
   border-color: #006bb3;
   outline: none;
 }

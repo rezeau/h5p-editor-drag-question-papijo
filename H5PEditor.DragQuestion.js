@@ -695,7 +695,20 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   };
 
   /**
-   * Add a conditional Align trigger and its PapiJo-owned action panel.
+   * Get the size actions exposed by the PapiJo-owned panel.
+   *
+   * @returns {Object[]} Size action descriptors.
+   */
+  C.prototype.getSizeActions = function () {
+    return [
+      {mode: 'width', label: C.t('sameWidth'), symbol: 'W'},
+      {mode: 'height', label: C.t('sameHeight'), symbol: 'H'},
+      {mode: 'size', label: C.t('sameSize'), symbol: 'W\u00d7H'}
+    ];
+  };
+
+  /**
+   * Add a conditional multi-selection trigger and its PapiJo-owned panel.
    * DragNBar's public button extension is used for the trigger only.
    *
    * @param {Object} dnbElement DragNBar element.
@@ -704,13 +717,19 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
     var that = this;
     var contextMenu = dnbElement.contextMenu;
 
-    dnbElement.addButton('PapiJoAlign', C.t('align'));
+    dnbElement.addButton('PapiJoAlign', C.t('arrange'));
 
     var $trigger = contextMenu.$contextMenu.find('.papijoalign');
-    var $panel = $('<div class="papijo-align-panel" role="group"></div>')
-      .attr('aria-label', C.t('align'))
+    var $panel = $('<div class="papijo-align-panel papijo-multi-selection-panel"></div>')
+      .attr('aria-label', C.t('arrange'))
       .hide()
       .appendTo(contextMenu.$contextMenu);
+    var $alignGroup = $('<div class="papijo-multi-selection-group" role="group"></div>')
+      .attr('aria-label', C.t('align'))
+      .appendTo($panel);
+    var $sizeGroup = $('<div class="papijo-multi-selection-group" role="group"></div>')
+      .attr('aria-label', C.t('resize'))
+      .appendTo($panel);
     var control = {
       dnbElement: dnbElement,
       $trigger: $trigger,
@@ -722,8 +741,11 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
       .attr('aria-expanded', 'false')
       .hide();
 
+    $('<span class="papijo-multi-selection-heading"></span>')
+      .text(C.t('align'))
+      .appendTo($alignGroup);
     this.getAlignmentActions().forEach(function (action) {
-      $('<button type="button" class="papijo-align-action"></button>')
+      $('<button type="button" class="papijo-align-action papijo-multi-selection-action"></button>')
         .attr('data-align-mode', action.mode)
         .attr('aria-label', action.label)
         .attr('title', action.label)
@@ -737,7 +759,28 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
           event.stopPropagation();
           that.alignSelection(action.mode);
         })
-        .appendTo($panel);
+        .appendTo($alignGroup);
+    });
+
+    $('<span class="papijo-multi-selection-heading"></span>')
+      .text(C.t('resize'))
+      .appendTo($sizeGroup);
+    this.getSizeActions().forEach(function (action) {
+      $('<button type="button" class="papijo-size-action papijo-multi-selection-action"></button>')
+        .attr('data-size-mode', action.mode)
+        .attr('aria-label', action.label)
+        .attr('title', action.label)
+        .text(action.symbol)
+        .on('mousedown', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        })
+        .on('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          that.sizeSelection(action.mode);
+        })
+        .appendTo($sizeGroup);
     });
 
     contextMenu.on('contextMenuPapiJoAlign', function () {
@@ -751,7 +794,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   };
 
   /**
-   * Close every Align panel.
+   * Close every multi-selection panel.
    */
   C.prototype.closeAlignPanels = function () {
     (this.alignControls || []).forEach(function (control) {
@@ -761,7 +804,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   };
 
   /**
-   * Keep Align controls synchronized with the current primary and selection.
+   * Keep multi-selection controls synchronized with primary and selection.
    */
   C.prototype.updateAlignUI = function () {
     if (!this.alignControls || !this.alignControls.length || !this.$editor) {
@@ -784,7 +827,7 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   };
 
   /**
-   * Toggle one Align panel if it still belongs to the current primary.
+   * Toggle one multi-selection panel if it belongs to the current primary.
    *
    * @param {Object} control Align control record.
    */
@@ -1270,6 +1313,62 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   C.prototype.alignSelection = function (mode) {
     var updates = this.prepareAlignmentPlan(mode);
     return updates ? this.applyGeometryPlan(updates) : false;
+  };
+
+  /**
+   * Prepare all secondary updates for one same-size operation.
+   * Requested outer dimensions are converted for each target's box model.
+   *
+   * @param {string} mode Size mode: width, height, or size.
+   * @returns {Object[]|null} Complete prepared plan, or null when unavailable.
+   */
+  C.prototype.prepareSizePlan = function (mode) {
+    var selection = this.getGeometrySelection();
+    if (selection.length < 2 || ['width', 'height', 'size'].indexOf(mode) === -1) {
+      return null;
+    }
+
+    var primary = this.measureGeometryObject(selection[0]);
+    if (!primary) {
+      return null;
+    }
+
+    var updates = [];
+    for (var i = 1; i < selection.length; i++) {
+      var changes = {};
+      if (mode === 'width' || mode === 'size') {
+        changes.width = primary.width;
+      }
+      if (mode === 'height' || mode === 'size') {
+        changes.height = primary.height;
+      }
+
+      var update = this.prepareGeometryUpdate(selection[i], changes);
+      updates.push(update);
+    }
+
+    return updates;
+  };
+
+  /**
+   * Independently resize each valid secondary to the fixed primary.
+   *
+   * @param {string} mode Size mode: width, height, or size.
+   * @returns {boolean} Whether the complete size operation was applied.
+   */
+  C.prototype.sizeSelection = function (mode) {
+    var updates = this.prepareSizePlan(mode);
+    if (!updates) {
+      return false;
+    }
+
+    var applied = false;
+    updates.forEach(function (update) {
+      if (update && this.applyGeometryPlan([update])) {
+        applied = true;
+      }
+    }, this);
+    return applied;
   };
 
   /**

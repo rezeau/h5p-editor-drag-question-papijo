@@ -14,6 +14,11 @@ const labels = {
   alignTop: 'Align top',
   alignMiddle: 'Align middle',
   alignBottom: 'Align bottom',
+  arrange: 'Arrange selection',
+  resize: 'Resize',
+  sameWidth: 'Same width',
+  sameHeight: 'Same height',
+  sameSize: 'Same size',
 };
 
 class FakeElement {
@@ -188,6 +193,9 @@ function setup() {
   });
   const secondary = new FakeElement(['h5p-dq-element', 'papijo-secondary-selected'], {
     left: 302, top: 202, width: 40, height: 30,
+  }, {
+    width: '30px',
+    height: '20px',
   });
   const dropZone = new FakeElement(['h5p-dq-dz'], {
     left: 402, top: 72, width: 60, height: 50,
@@ -195,7 +203,7 @@ function setup() {
   const params = {
     elements: [
       {x: 20, y: 16.6666666667, width: 10, height: 8},
-      {x: 40, y: 50, width: 4, height: 3},
+      {x: 40, y: 50, width: 3, height: 2},
     ],
     dropZones: [{x: 60, y: 6.6666666667, width: 6, height: 5}],
   };
@@ -305,6 +313,219 @@ test('legacy sub-24px secondary can be aligned without resizing', () => {
   assert.equal(Object.hasOwn(secondary.appliedStyles, 'height'), false);
 });
 
+test('Same Width matches rendered outer width and preserves position and height', () => {
+  const {instance, primary, secondary, params} = setup();
+  const primaryParams = {...params.elements[0]};
+  const secondaryBefore = {...params.elements[1]};
+
+  assert.equal(instance.sizeSelection('width'), true);
+  assert.deepEqual(secondary.appliedStyles, {width: '9em'});
+  assert.equal(params.elements[1].width, 9);
+  assert.equal(params.elements[1].height, secondaryBefore.height);
+  assert.equal(params.elements[1].x, secondaryBefore.x);
+  assert.equal(params.elements[1].y, secondaryBefore.y);
+  assert.deepEqual(params.elements[0], primaryParams);
+  assert.deepEqual(primary.appliedStyles, {});
+});
+
+test('Same Height matches rendered outer height and preserves position and width', () => {
+  const {instance, primary, secondary, params} = setup();
+  const primaryParams = {...params.elements[0]};
+  const secondaryBefore = {...params.elements[1]};
+
+  assert.equal(instance.sizeSelection('height'), true);
+  assert.deepEqual(secondary.appliedStyles, {height: '7em'});
+  assert.equal(params.elements[1].height, 7);
+  assert.equal(params.elements[1].width, secondaryBefore.width);
+  assert.equal(params.elements[1].x, secondaryBefore.x);
+  assert.equal(params.elements[1].y, secondaryBefore.y);
+  assert.deepEqual(params.elements[0], primaryParams);
+  assert.deepEqual(primary.appliedStyles, {});
+});
+
+test('Same Size matches both rendered outer dimensions and preserves position', () => {
+  const {instance, secondary, params} = setup();
+  const position = {x: params.elements[1].x, y: params.elements[1].y};
+
+  assert.equal(instance.sizeSelection('size'), true);
+  assert.deepEqual(secondary.appliedStyles, {width: '9em', height: '7em'});
+  assert.equal(params.elements[1].width, 9);
+  assert.equal(params.elements[1].height, 7);
+  assert.equal(params.elements[1].x, position.x);
+  assert.equal(params.elements[1].y, position.y);
+});
+
+test('multiple mixed secondaries get equal outer size through target-specific conversion', () => {
+  const {instance, secondary, dropZone, params} = setup();
+  instance.secondarySelections.push(dropZone);
+  dropZone.classes.add('papijo-secondary-selected');
+
+  assert.equal(instance.sizeSelection('size'), true);
+  assert.deepEqual(secondary.appliedStyles, {width: '9em', height: '7em'});
+  assert.deepEqual(dropZone.appliedStyles, {width: '10em', height: '8em'});
+  assert.equal(params.elements[1].width, 9);
+  assert.equal(params.elements[1].height, 7);
+  assert.equal(params.dropZones[0].width, 10);
+  assert.equal(params.dropZones[0].height, 8);
+});
+
+test('mixed Same Width produces equal outer width with different persisted em widths', () => {
+  const {instance, secondary, dropZone, params} = setup();
+  instance.secondarySelections = [secondary, dropZone];
+
+  assert.equal(instance.sizeSelection('width'), true);
+  assert.equal(secondary.appliedStyles.width, '9em');
+  assert.equal(dropZone.appliedStyles.width, '10em');
+  assert.equal(params.elements[1].width, 9);
+  assert.equal(params.dropZones[0].width, 10);
+  assert.equal(Object.hasOwn(secondary.appliedStyles, 'height'), false);
+  assert.equal(Object.hasOwn(dropZone.appliedStyles, 'height'), false);
+});
+
+test('mixed Same Height produces equal outer height with different persisted em heights', () => {
+  const {instance, secondary, dropZone, params} = setup();
+  instance.secondarySelections = [secondary, dropZone];
+
+  assert.equal(instance.sizeSelection('height'), true);
+  assert.equal(secondary.appliedStyles.height, '7em');
+  assert.equal(dropZone.appliedStyles.height, '8em');
+  assert.equal(params.elements[1].height, 7);
+  assert.equal(params.dropZones[0].height, 8);
+  assert.equal(Object.hasOwn(secondary.appliedStyles, 'width'), false);
+  assert.equal(Object.hasOwn(dropZone.appliedStyles, 'width'), false);
+});
+
+test('drop-zone primary sizes a draggable secondary using draggable box model', () => {
+  const {instance, primary, secondary, dropZone, params} = setup();
+  instance.dnb.focusedElement = {getElement: () => $(dropZone)};
+  instance.secondarySelections = [secondary];
+  dropZone.classes.add('focused');
+  primary.classes.delete('focused');
+
+  assert.equal(instance.sizeSelection('size'), true);
+  assert.deepEqual(secondary.appliedStyles, {width: '5em', height: '4em'});
+  assert.equal(params.elements[1].width, 5);
+  assert.equal(params.elements[1].height, 4);
+  assert.deepEqual(dropZone.appliedStyles, {});
+});
+
+test('size operation preserves primary focus and secondary selection', () => {
+  const {instance, primary, secondary, primaryDnb} = setup();
+
+  assert.equal(instance.sizeSelection('width'), true);
+  assert.equal(instance.dnb.focusedElement, primaryDnb);
+  assert.deepEqual(instance.secondarySelections, [secondary]);
+  assert.equal(primary.classes.has('focused'), true);
+  assert.equal(secondary.classes.has('focused'), false);
+  assert.equal(secondary.classes.has('papijo-secondary-selected'), true);
+});
+
+test('Same Width resizes a valid secondary while a right-boundary peer stays unchanged', () => {
+  const {instance, primary, secondary, dropZone, params, primaryDnb} = setup();
+  instance.secondarySelections.push(dropZone);
+  dropZone.classes.add('papijo-secondary-selected');
+  secondary.rect.left = 552;
+  const primaryBefore = {...params.elements[0]};
+  const invalidBefore = {...params.elements[1]};
+
+  assert.equal(instance.sizeSelection('width'), true);
+  assert.deepEqual(secondary.appliedStyles, {});
+  assert.deepEqual(params.elements[1], invalidBefore);
+  assert.deepEqual(dropZone.appliedStyles, {width: '10em'});
+  assert.equal(params.dropZones[0].width, 10);
+  assert.deepEqual(params.elements[0], primaryBefore);
+  assert.deepEqual(primary.appliedStyles, {});
+  assert.deepEqual(instance.secondarySelections, [secondary, dropZone]);
+  assert.equal(instance.dnb.focusedElement, primaryDnb);
+  assert.equal(secondary.classes.has('focused'), false);
+  assert.equal(dropZone.classes.has('focused'), false);
+});
+
+test('Same Height resizes a valid secondary while a bottom-boundary peer stays unchanged', () => {
+  const {instance, secondary, dropZone, params} = setup();
+  instance.secondarySelections.push(dropZone);
+  secondary.rect.top = 292;
+  const invalidBefore = {...params.elements[1]};
+
+  assert.equal(instance.sizeSelection('height'), true);
+  assert.deepEqual(secondary.appliedStyles, {});
+  assert.deepEqual(params.elements[1], invalidBefore);
+  assert.deepEqual(dropZone.appliedStyles, {height: '8em'});
+  assert.equal(params.dropZones[0].height, 8);
+});
+
+test('Same Size gives an invalid secondary neither dimension while valid peers resize', () => {
+  const {instance, secondary, dropZone, params} = setup();
+  instance.secondarySelections.push(dropZone);
+  secondary.rect.top = 292;
+  const invalidBefore = {...params.elements[1]};
+
+  assert.equal(instance.sizeSelection('size'), true);
+  assert.deepEqual(secondary.appliedStyles, {});
+  assert.deepEqual(params.elements[1], invalidBefore);
+  assert.deepEqual(dropZone.appliedStyles, {width: '10em', height: '8em'});
+  assert.equal(params.dropZones[0].width, 10);
+  assert.equal(params.dropZones[0].height, 8);
+});
+
+test('all-invalid resize leaves every secondary unchanged', () => {
+  const {instance, secondary, params} = setup();
+  secondary.rect.left = 552;
+  const original = {...params.elements[1]};
+
+  assert.equal(instance.sizeSelection('width'), false);
+  assert.deepEqual(secondary.appliedStyles, {});
+  assert.deepEqual(params.elements[1], original);
+});
+
+test('exact-edge size fit is valid', () => {
+  const {instance, secondary} = setup();
+  secondary.rect.left = 502;
+
+  assert.equal(instance.sizeSelection('width'), true);
+  assert.equal(secondary.appliedStyles.width, '9em');
+});
+
+test('Same Width validates only requested width and accepts legacy small height', () => {
+  const {instance, secondary, params} = setup();
+  secondary.rect.height = 18;
+  secondary.computedStyle.height = '8px';
+  params.elements[1].height = 0.8;
+
+  assert.equal(instance.sizeSelection('width'), true);
+
+  const tooSmall = setup();
+  tooSmall.primary.rect.width = 23;
+  assert.equal(tooSmall.instance.sizeSelection('width'), false);
+  assert.deepEqual(tooSmall.secondary.appliedStyles, {});
+});
+
+test('Same Height validates only requested height and accepts legacy small width', () => {
+  const {instance, secondary, params} = setup();
+  secondary.rect.width = 18;
+  secondary.computedStyle.width = '8px';
+  params.elements[1].width = 0.8;
+
+  assert.equal(instance.sizeSelection('height'), true);
+
+  const tooSmall = setup();
+  tooSmall.primary.rect.height = 23;
+  assert.equal(tooSmall.instance.sizeSelection('height'), false);
+  assert.deepEqual(tooSmall.secondary.appliedStyles, {});
+});
+
+test('Same Size applies the 24px minimum to both requested dimensions', () => {
+  const narrow = setup();
+  narrow.primary.rect.width = 23;
+  assert.equal(narrow.instance.sizeSelection('size'), false);
+  assert.deepEqual(narrow.secondary.appliedStyles, {});
+
+  const short = setup();
+  short.primary.rect.height = 23;
+  assert.equal(short.instance.sizeSelection('size'), false);
+  assert.deepEqual(short.secondary.appliedStyles, {});
+});
+
 test('Align panel descriptors expose exactly the six intended accessible actions', () => {
   const {instance} = setup();
   const actions = instance.getAlignmentActions();
@@ -315,7 +536,16 @@ test('Align panel descriptors expose exactly the six intended accessible actions
     'Align left,Align center,Align right,Align top,Align middle,Align bottom');
 });
 
-test('Align control builds one trigger and exactly six panel buttons', () => {
+test('Resize panel descriptors expose exactly the three intended accessible actions', () => {
+  const {instance} = setup();
+  const actions = instance.getSizeActions();
+
+  assert.equal(actions.map((action) => action.mode).join(','), 'width,height,size');
+  assert.equal(actions.map((action) => action.label).join(','),
+    'Same width,Same height,Same size');
+});
+
+test('combined control builds six Align and three Resize actions in logical groups', () => {
   const {instance} = setup();
   const menuElement = new FakeElement();
   const contextMenu = {
@@ -336,11 +566,20 @@ test('Align control builds one trigger and exactly six panel buttons', () => {
   instance.addAlignControl(dnbElement);
 
   const panel = menuElement.children.find((child) => child.classes.has('papijo-align-panel'));
+  const trigger = menuElement.children.find((child) => child.classes.has('papijoalign'));
+  const groups = panel.children.filter((child) => child.classes.has('papijo-multi-selection-group'));
+  const buttons = groups.flatMap((group) => group.children.filter((child) => {
+    return child.classes.has('papijo-multi-selection-action');
+  }));
   assert.ok(panel);
-  assert.equal(panel.children.length, 6);
-  assert.deepEqual(panel.children.map((button) => button.attributes['aria-label']), [
+  assert.equal(trigger.attributes['aria-label'], 'Arrange selection');
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups.map((group) => group.attributes['aria-label']), ['Align', 'Resize']);
+  assert.equal(buttons.length, 9);
+  assert.deepEqual(buttons.map((button) => button.attributes['aria-label']), [
     'Align left', 'Align center', 'Align right',
     'Align top', 'Align middle', 'Align bottom',
+    'Same width', 'Same height', 'Same size',
   ]);
 
   panel.hidden = false;

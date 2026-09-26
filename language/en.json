@@ -23,6 +23,11 @@
     "alignRight": "Align right",
     "alignTop": "Align top",
     "alignMiddle": "Align middle",
-    "alignBottom": "Align bottom"
+    "alignBottom": "Align bottom",
+    "arrange": "Arrange selection",
+    "resize": "Resize",
+    "sameWidth": "Same width",
+    "sameHeight": "Same height",
+    "sameSize": "Same size"
   }
 }

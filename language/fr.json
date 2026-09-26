@@ -23,6 +23,11 @@
     "alignRight": "Aligner à droite",
     "alignTop": "Aligner en haut",
     "alignMiddle": "Centrer verticalement",
-    "alignBottom": "Aligner en bas"
+    "alignBottom": "Aligner en bas",
+    "arrange": "Organiser la sélection",
+    "resize": "Redimensionner",
+    "sameWidth": "Même largeur",
+    "sameHeight": "Même hauteur",
+    "sameSize": "Même taille"
   }
 }
