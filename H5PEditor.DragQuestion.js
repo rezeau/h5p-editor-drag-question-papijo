@@ -733,6 +733,343 @@ H5PEditor.widgets.dragQuestion = H5PEditor.DragQuestion = (function ($, DragNBar
   };
 
   /**
+   * Resolve an editor element to its current object and parameters.
+   * Numeric IDs are resolved at operation time; DOM nodes remain the
+   * selection identity.
+   *
+   * @param {HTMLElement} element Editor element.
+   * @returns {Object|null} Resolved geometry object.
+   */
+  C.prototype.resolveGeometryObject = function (element) {
+    var $element = $(element);
+    var isDropZone = $element.hasClass('h5p-dq-dz');
+    var objects = isDropZone ? this.dropZones : this.elements;
+    var params = isDropZone ? this.params.dropZones : this.params.elements;
+    var elementProperty = isDropZone ? '$dropZone' : '$element';
+    var id = Number($element.data('id'));
+
+    // Verify the mutable data ID before trusting it, then fall back to the DOM
+    // reference if an operation observes the element during reindexing.
+    if (id % 1 !== 0 || !objects[id] || objects[id][elementProperty][0] !== element) {
+      id = -1;
+      for (var i = 0; i < objects.length; i++) {
+        if (objects[i][elementProperty][0] === element) {
+          id = i;
+          break;
+        }
+      }
+    }
+
+    if (id < 0 || !params[id]) {
+      return null;
+    }
+
+    return {
+      element: element,
+      $element: $element,
+      type: isDropZone ? 'dropZone' : 'draggable',
+      id: id,
+      params: params[id],
+      editorObject: objects[id]
+    };
+  };
+
+  /**
+   * Get the current geometry selection with the DragNBar primary first.
+   *
+   * @returns {Object[]} Resolved geometry objects.
+   */
+  C.prototype.getGeometrySelection = function () {
+    var selection = [];
+    var primary;
+
+    if (this.dnb && this.dnb.focusedElement) {
+      primary = this.dnb.focusedElement.getElement()[0];
+      var primaryObject = this.resolveGeometryObject(primary);
+      if (primaryObject) {
+        selection.push(primaryObject);
+      }
+    }
+
+    this.secondarySelections.forEach(function (element) {
+      if (element === primary) {
+        return;
+      }
+      var geometryObject = this.resolveGeometryObject(element);
+      if (geometryObject) {
+        selection.push(geometryObject);
+      }
+    }, this);
+
+    return selection;
+  };
+
+  /**
+   * Get the rendered inner canvas box.
+   *
+   * @returns {Object} Canvas origin and dimensions in rendered pixels.
+   */
+  C.prototype.getRenderedCanvasBox = function () {
+    var editor = this.$editor[0];
+    var rect = editor.getBoundingClientRect();
+    var style = window.getComputedStyle(editor);
+    var borderLeft = parseFloat(style.borderLeftWidth) || 0;
+    var borderRight = parseFloat(style.borderRightWidth) || 0;
+    var borderTop = parseFloat(style.borderTopWidth) || 0;
+    var borderBottom = parseFloat(style.borderBottomWidth) || 0;
+
+    return {
+      left: rect.left + borderLeft,
+      top: rect.top + borderTop,
+      width: rect.width - borderLeft - borderRight,
+      height: rect.height - borderTop - borderBottom
+    };
+  };
+
+  /**
+   * Measure an editor object's rendered outer rectangle relative to the
+   * canvas inner edge.
+   *
+   * @param {Object|HTMLElement} object Resolved geometry object or element.
+   * @returns {Object|null} Rendered rectangle.
+   */
+  C.prototype.measureGeometryObject = function (object) {
+    object = object && object.element ? object : this.resolveGeometryObject(object);
+    if (!object) {
+      return null;
+    }
+
+    var canvas = this.getRenderedCanvasBox();
+    var rect = object.element.getBoundingClientRect();
+    var left = rect.left - canvas.left;
+    var top = rect.top - canvas.top;
+
+    return {
+      left: left,
+      top: top,
+      width: rect.width,
+      height: rect.height,
+      right: left + rect.width,
+      bottom: top + rect.height,
+      centerX: left + (rect.width / 2),
+      centerY: top + (rect.height / 2)
+    };
+  };
+
+  /**
+   * Convert rendered editor-relative pixel coordinates to persisted percent.
+   *
+   * @param {number} [left] Left coordinate in pixels.
+   * @param {number} [top] Top coordinate in pixels.
+   * @returns {Object|null} Partial x/y parameter values.
+   */
+  C.prototype.convertRenderedPositionToPercent = function (left, top) {
+    var canvas = this.getRenderedCanvasBox();
+    if (canvas.width <= 0 || canvas.height <= 0) {
+      return null;
+    }
+
+    var position = {};
+    if (left !== undefined) {
+      position.x = left / (canvas.width / 100);
+    }
+    if (top !== undefined) {
+      position.y = top / (canvas.height / 100);
+    }
+    return position;
+  };
+
+  /**
+   * Get the current rendered editor em size.
+   *
+   * @returns {number} Current em size in pixels.
+   */
+  C.prototype.getCurrentEditorEm = function () {
+    var currentEm = parseFloat(window.getComputedStyle(this.$editor[0]).fontSize);
+    if ((!isFinite(currentEm) || currentEm <= 0) && this.dnb && this.dnb.dnr) {
+      currentEm = this.dnb.dnr.containerEm;
+    }
+    return currentEm;
+  };
+
+  /**
+   * Convert desired rendered outer dimensions to target-specific em values.
+   *
+   * @param {Object|HTMLElement} object Resolved geometry object or element.
+   * @param {number} [width] Desired rendered outer width.
+   * @param {number} [height] Desired rendered outer height.
+   * @returns {Object|null} Partial width/height parameter values.
+   */
+  C.prototype.convertRenderedOuterSizeToEm = function (object, width, height) {
+    object = object && object.element ? object : this.resolveGeometryObject(object);
+    if (!object) {
+      return null;
+    }
+
+    var currentEm = this.getCurrentEditorEm();
+    if (!isFinite(currentEm) || currentEm <= 0) {
+      return null;
+    }
+
+    var style = window.getComputedStyle(object.element);
+    var rendered = object.element.getBoundingClientRect();
+    var cssWidth = parseFloat(style.width);
+    var cssHeight = parseFloat(style.height);
+    var size = {};
+
+    if (width !== undefined) {
+      var horizontalExtras = rendered.width - cssWidth;
+      var targetWidth = width - horizontalExtras;
+      if (!isFinite(targetWidth) || targetWidth <= 0) {
+        return null;
+      }
+      size.width = targetWidth / currentEm;
+    }
+
+    if (height !== undefined) {
+      var verticalExtras = rendered.height - cssHeight;
+      var targetHeight = height - verticalExtras;
+      if (!isFinite(targetHeight) || targetHeight <= 0) {
+        return null;
+      }
+      size.height = targetHeight / currentEm;
+    }
+
+    return size;
+  };
+
+  /**
+   * Check whether a rendered rectangle stays inside the current canvas.
+   * Existing sub-minimum legacy sizes are accepted here.
+   *
+   * @param {Object} rect Rendered rectangle.
+   * @returns {boolean} Whether the rectangle is within bounds.
+   */
+  C.prototype.isGeometryRectWithinBounds = function (rect) {
+    var canvas = this.getRenderedCanvasBox();
+    return isFinite(rect.left) && isFinite(rect.top) &&
+      isFinite(rect.width) && isFinite(rect.height) &&
+      rect.left >= 0 && rect.top >= 0 &&
+      rect.width >= 0 && rect.height >= 0 &&
+      rect.left + rect.width <= canvas.width &&
+      rect.top + rect.height <= canvas.height;
+  };
+
+  /**
+   * Validate only dimensions explicitly requested by a new size operation.
+   *
+   * @param {Object} size Partial rendered outer width/height.
+   * @returns {boolean} Whether requested dimensions meet DragNResize minimum.
+   */
+  C.prototype.isRequestedGeometrySizeValid = function (size) {
+    var minimumSize = 24;
+    return (size.width === undefined || (isFinite(size.width) && size.width >= minimumSize)) &&
+      (size.height === undefined || (isFinite(size.height) && size.height >= minimumSize));
+  };
+
+  /**
+   * Prepare a position and/or size update without mutating DOM or parameters.
+   *
+   * @param {Object|HTMLElement} object Resolved geometry object or element.
+   * @param {Object} changes Desired rendered left/top/width/height.
+   * @returns {Object|null} Prepared geometry update.
+   */
+  C.prototype.prepareGeometryUpdate = function (object, changes) {
+    changes = changes || {};
+    object = object && object.element ? object : this.resolveGeometryObject(object);
+    var current = this.measureGeometryObject(object);
+    if (!object || !current) {
+      return null;
+    }
+
+    var rect = {
+      left: changes.left !== undefined ? changes.left : current.left,
+      top: changes.top !== undefined ? changes.top : current.top,
+      width: changes.width !== undefined ? changes.width : current.width,
+      height: changes.height !== undefined ? changes.height : current.height
+    };
+    rect.right = rect.left + rect.width;
+    rect.bottom = rect.top + rect.height;
+    rect.centerX = rect.left + (rect.width / 2);
+    rect.centerY = rect.top + (rect.height / 2);
+
+    var position = (changes.left !== undefined || changes.top !== undefined) ?
+      this.convertRenderedPositionToPercent(changes.left, changes.top) : {};
+    var size = (changes.width !== undefined || changes.height !== undefined) ?
+      this.convertRenderedOuterSizeToEm(object, changes.width, changes.height) : {};
+    if (!position || !size) {
+      return null;
+    }
+
+    var params = {};
+    var styles = {};
+    if (position.x !== undefined) {
+      params.x = position.x;
+      styles.left = position.x + '%';
+    }
+    if (position.y !== undefined) {
+      params.y = position.y;
+      styles.top = position.y + '%';
+    }
+    if (size.width !== undefined) {
+      params.width = size.width;
+      styles.width = size.width + 'em';
+    }
+    if (size.height !== undefined) {
+      params.height = size.height;
+      styles.height = size.height + 'em';
+    }
+
+    return {
+      object: object,
+      rect: rect,
+      requestedSize: {
+        width: changes.width,
+        height: changes.height
+      },
+      params: params,
+      styles: styles
+    };
+  };
+
+  /**
+   * Validate every update in a prepared geometry plan.
+   *
+   * @param {Object[]} updates Prepared updates.
+   * @returns {boolean} Whether every update is valid.
+   */
+  C.prototype.validateGeometryPlan = function (updates) {
+    if (!Array.isArray(updates)) {
+      return false;
+    }
+
+    return updates.every(function (update) {
+      return update && this.isGeometryRectWithinBounds(update.rect) &&
+        this.isRequestedGeometrySizeValid(update.requestedSize);
+    }, this);
+  };
+
+  /**
+   * Atomically apply a fully prepared geometry plan.
+   *
+   * @param {Object[]} updates Prepared updates.
+   * @returns {boolean} Whether the plan was committed.
+   */
+  C.prototype.applyGeometryPlan = function (updates) {
+    if (!this.validateGeometryPlan(updates)) {
+      return false;
+    }
+
+    updates.forEach(function (update) {
+      update.object.$element.css(update.styles);
+      Object.keys(update.params).forEach(function (key) {
+        update.object.params[key] = update.params[key];
+      });
+    });
+    return true;
+  };
+
+  /**
    * Help center new elements
    * @param {object} params
    */
